@@ -337,29 +337,12 @@ export class BlockParser {
   }
 
   /**
-   * Get block at specific line number (block start)
-   * FIXED: Find block by matching actual source line
+   * Get block at specific line number (block header line)
+   * Returns the block whose header is at the specified line number
    */
   public getBlockAt(line: number): BlockStatement | undefined {
-    // Find which statement text matches this line
-    if (line >= this.sourceLines.length) return undefined;
-
-    const targetLine = this.sourceLines[line].trim();
-    if (!targetLine) return undefined;
-
-    // Find block whose header matches this line
-    for (const block of this.blocks) {
-      // Check if block header text matches the source line
-      if (block.header.includes(targetLine) || targetLine.includes(block.header.split(/\s+/)[0])) {
-        // Verify by checking indentation matches
-        const blockIndent = this.getLineIndent(this.sourceLines[line]);
-        if (blockIndent === block.indent) {
-          return block;
-        }
-      }
-    }
-
-    return undefined;
+    // FIXED: Use actual source line stored in block.line
+    return this.blocks.find(b => b.line === line);
   }
 
   /**

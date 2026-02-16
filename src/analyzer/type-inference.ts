@@ -315,8 +315,9 @@ export class TypeInferenceEngine {
         inferredType = 'array';
       }
       // Priority 2: String-only methods (not shared with array)
-      // FIXED: Removed 'length' from string detection, as it's ambiguous
-      else if (new RegExp(`${param}\\.(substring|concat|split|toUpperCase|toLowerCase|trim|includes)`).test(body)) {
+      // NOTE: .length is on both arrays and strings, but if we reach here without array detection,
+      // .length should be treated as string. Array access/methods are checked first.
+      else if (new RegExp(`${param}\\.(substring|concat|split|toUpperCase|toLowerCase|trim|includes|length)`).test(body)) {
         inferredType = 'string';
       }
       // Priority 3: Operations
