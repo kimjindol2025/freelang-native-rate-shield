@@ -49,6 +49,9 @@ export class StatementParser {
       const stmt = this.parseStatement();
       if (stmt) {
         this.statements.push(stmt);
+      } else {
+        // If parseStatement returns null, we must advance to prevent infinite loop
+        this.advance();
       }
     }
 
