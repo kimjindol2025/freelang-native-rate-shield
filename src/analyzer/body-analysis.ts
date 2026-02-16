@@ -60,6 +60,7 @@ export interface BodyAnalysisResult {
  */
 export class BodyAnalyzer {
   private bodyTokens: string[];
+  private keywordCounts: Map<string, number> | null = null; // Cache
 
   constructor(body: string) {
     // 본체를 토큰으로 분해 (공백 기준)
@@ -69,9 +70,40 @@ export class BodyAnalyzer {
   }
 
   /**
+   * Phase 4.5: Optimized keyword counting (한 번의 순회로 모든 카운트)
+   *
+   * 최적화 전: countKeyword()를 16번 호출 → O(16n)
+   * 최적화 후: 한 번의 순회 → O(n)
+   *
+   * 예상 개선: 1.30ms → 0.3-0.4ms (70% 감소)
+   */
+  private ensureKeywordCounts(): void {
+    if (this.keywordCounts !== null) return; // Already cached
+
+    this.keywordCounts = new Map();
+
+    // O(n): 한 번의 순회로 모든 키워드 카운트
+    for (const token of this.bodyTokens) {
+      const count = this.keywordCounts.get(token) || 0;
+      this.keywordCounts.set(token, count + 1);
+    }
+  }
+
+  /**
+   * 캐시된 카운트 조회 (O(1))
+   */
+  private countKeywordOptimized(keyword: string): number {
+    this.ensureKeywordCounts();
+    return this.keywordCounts?.get(keyword) || 0;
+  }
+
+  /**
    * 전체 분석 실행
    */
   public analyze(): BodyAnalysisResult {
+    // Pre-compute all keyword counts once (O(n))
+    this.ensureKeywordCounts();
+
     const loops = this.analyzeLoops();
     const accumulation = this.analyzeAccumulation();
     const memory = this.analyzeMemory();
@@ -94,8 +126,8 @@ export class BodyAnalyzer {
    * Phase 5 Task 4.2a: 루프 감지
    */
   private analyzeLoops(): LoopAnalysis {
-    const forCount = this.countKeyword('for');
-    const whileCount = this.countKeyword('while');
+    const forCount = this.countKeywordOptimized('for');
+    const whileCount = this.countKeywordOptimized('while');
     const hasLoop = forCount > 0 || whileCount > 0;
     const loopCount = forCount + whileCount;
 
@@ -125,7 +157,7 @@ export class BodyAnalyzer {
     const accumulationOps = ['+=', '-=', '*=', '/=', '%='];
 
     for (const op of accumulationOps) {
-      const count = this.countKeyword(op);
+      const count = this.countKeywordOptimized(op); // 최적화: 캐시된 카운트 사용
       if (count > 0) {
         operationTypes.push(op);
         operationCount += count;
@@ -151,8 +183,8 @@ export class BodyAnalyzer {
    */
   private analyzeMemory(): MemoryAnalysis {
     // 변수 선언: let, const 키워드 개수
-    const letCount = this.countKeyword('let');
-    const constCount = this.countKeyword('const');
+    const letCount = this.countKeywordOptimized('let'); // 최적화: 캐시 사용
+    const constCount = this.countKeywordOptimized('const'); // 최적화: 캐시 사용
     const estimatedVariables = letCount + constCount;
 
     // 배열 선언 감지: [, push, pop 등 배열 메서드
@@ -166,7 +198,7 @@ export class BodyAnalyzer {
     // 복잡한 자료구조: map, struct 등
     const complexKeywords = ['map', 'struct', 'HashMap', 'Vec', 'Array'];
     const hasComplexDataStructure = complexKeywords.some(kw =>
-      this.countKeyword(kw) > 0
+      this.countKeywordOptimized(kw) > 0 // 최적화: 캐시 사용
     );
 
     // 메모리 효율성 제안: 변수 많거나 복잡한 자료구조 또는 배열
@@ -270,14 +302,18 @@ export class BodyAnalyzer {
   }
 
   /**
-   * Helper: 중첩 루프 감지
+   * Helper: 중첩 루프 감지 (최적화 버전)
    *
    * 간단한 휴리스틱: for/while이 여러 개이고, 중괄호가 2개 이상 있으면
    * 중첩 루프로 판단
+   *
+   * 최적화: join() + match() 대신 filter() 사용 (O(n) → O(n), 하지만 상수 감소)
    */
   private detectNestedLoops(): boolean {
-    const loopCount = this.countKeyword('for') + this.countKeyword('while');
-    const braceCount = (this.bodyTokens.join('').match(/{/g) || []).length;
+    const loopCount = this.countKeywordOptimized('for') + this.countKeywordOptimized('while');
+
+    // 개선: join('').match() 대신 직접 필터링 (정규식 오버헤드 제거)
+    const braceCount = this.bodyTokens.filter(t => t === '{').length;
 
     // 루프가 2개 이상이고, 중괄호가 깊으면 중첩으로 판단
     return loopCount >= 2 && braceCount >= 2;
