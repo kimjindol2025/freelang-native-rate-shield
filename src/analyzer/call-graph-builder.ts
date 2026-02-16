@@ -64,6 +64,12 @@ const BUILTIN_FUNCTIONS = new Set([
 
 /**
  * CallGraphBuilder: 함수 호출 관계 분석
+ *
+ * 입력: MinimalFunctionAST[] (파싱된 함수들)
+ * 프로세스:
+ *   1. 함수 정의 수집 (각 함수명 등록)
+ *   2. 함수 본문에서 호출 분석 (단순 정규식 기반)
+ *   3. Root/Unreachable 함수 계산
  */
 export class CallGraphBuilder {
   private callGraph: CallGraph = {
@@ -73,163 +79,94 @@ export class CallGraphBuilder {
     unreachableFunctions: [],
   };
 
-  private currentFunction: string = 'global';
   private functionsInScope: Set<string> = new Set();
 
   /**
    * Step 1: 함수 정의 수집
    */
-  collectFunctionDefinitions(statements: Statement[]): void {
-    for (const stmt of statements) {
-      if (stmt.type === 'FunctionDeclaration') {
-        const fn = stmt as FunctionDeclaration;
-        const fnName = fn.name.value;
+  private collectFunctionDefinitions(functions: MinimalFunctionAST[]): void {
+    for (const fn of functions) {
+      const fnName = fn.fnName;
 
-        if (!this.callGraph.nodes.has(fnName)) {
-          this.callGraph.nodes.set(fnName, {
-            name: fnName,
-            isDefined: true,
-            callsTo: [],
-            calledBy: [],
-            isBuiltin: false,
-          });
-        }
-        this.functionsInScope.add(fnName);
+      if (!this.callGraph.nodes.has(fnName)) {
+        this.callGraph.nodes.set(fnName, {
+          name: fnName,
+          isDefined: true,
+          callsTo: [],
+          calledBy: [],
+          isBuiltin: false,
+        });
       }
+      this.functionsInScope.add(fnName);
     }
   }
 
   /**
    * Step 2: 함수 본문에서 호출 추적
+   *
+   * 간단한 정규식 기반 추출:
+   *   - foo() → foo 호출 감지
+   *   - console.log() → console.log 호출 감지
    */
-  analyzeFunctionCalls(statements: Statement[]): void {
-    for (const stmt of statements) {
-      this.analyzeStatement(stmt, this.currentFunction);
-    }
-  }
+  private analyzeFunctionCalls(functions: MinimalFunctionAST[]): void {
+    for (const fn of functions) {
+      if (!fn.body) continue;
 
-  /**
-   * 재귀적으로 Statement 분석
-   */
-  private analyzeStatement(stmt: Statement, callerFn: string): void {
-    if (!stmt) return;
+      const callerFn = fn.fnName;
 
-    if (stmt.type === 'FunctionDeclaration') {
-      const fn = stmt as FunctionDeclaration;
-      const prevFunction = this.currentFunction;
-      this.currentFunction = fn.name.value;
+      // 함수 본문에서 호출 패턴 추출
+      // 패턴: identifier() or obj.method()
+      const callPattern = /(\w+)(?:\.(\w+))?\s*\(/g;
+      let match;
 
-      // 함수 본문 분석
-      if (fn.body && fn.body.statements) {
-        for (const bodystmt of fn.body.statements) {
-          this.analyzeStatement(bodystmt, this.currentFunction);
+      while ((match = callPattern.exec(fn.body)) !== null) {
+        let calleeName: string;
+        const obj = match[1];
+        const prop = match[2];
+
+        if (prop) {
+          calleeName = `${obj}.${prop}`;
+        } else {
+          calleeName = obj;
+        }
+
+        // 빌트인 함수 확인
+        const isBuiltin = BUILTIN_FUNCTIONS.has(calleeName);
+
+        // Edge 추가
+        const edge: FunctionCall = {
+          caller: callerFn,
+          callee: calleeName,
+          line: 0,  // 정확한 라인 정보 없음
+          confidence: isBuiltin ? 0.9 : 0.85,
+        };
+        this.callGraph.edges.push(edge);
+
+        // 노드 업데이트
+        const callerNode = this.callGraph.nodes.get(callerFn);
+        if (callerNode) {
+          if (!callerNode.callsTo.includes(calleeName)) {
+            callerNode.callsTo.push(calleeName);
+          }
+        }
+
+        // 호출된 함수가 미등록이면 추가
+        if (!this.callGraph.nodes.has(calleeName)) {
+          this.callGraph.nodes.set(calleeName, {
+            name: calleeName,
+            isDefined: false,
+            callsTo: [],
+            calledBy: [],
+            isBuiltin,
+          });
+        }
+
+        // calledBy 업데이트
+        const calleeNode = this.callGraph.nodes.get(calleeName);
+        if (calleeNode && !calleeNode.calledBy.includes(callerFn)) {
+          calleeNode.calledBy.push(callerFn);
         }
       }
-
-      this.currentFunction = prevFunction;
-    }
-    else if (stmt.type === 'ExpressionStatement') {
-      if (stmt.expression && stmt.expression.type === 'CallExpression') {
-        this.analyzeCallExpression(stmt.expression as CallExpression, callerFn);
-      }
-    }
-    else if (stmt.type === 'VariableDeclaration') {
-      if (stmt.value && stmt.value.type === 'CallExpression') {
-        this.analyzeCallExpression(stmt.value as CallExpression, callerFn);
-      }
-    }
-    else if (stmt.type === 'ReturnStatement') {
-      if (stmt.value && stmt.value.type === 'CallExpression') {
-        this.analyzeCallExpression(stmt.value as CallExpression, callerFn);
-      }
-    }
-    else if (stmt.type === 'IfStatement') {
-      const ifStmt = stmt as any;
-      if (ifStmt.consequent && Array.isArray(ifStmt.consequent.statements)) {
-        for (const s of ifStmt.consequent.statements) {
-          this.analyzeStatement(s, callerFn);
-        }
-      }
-      if (ifStmt.alternate && Array.isArray(ifStmt.alternate.statements)) {
-        for (const s of ifStmt.alternate.statements) {
-          this.analyzeStatement(s, callerFn);
-        }
-      }
-    }
-    else if (stmt.type === 'ForStatement') {
-      const forStmt = stmt as any;
-      if (forStmt.body && Array.isArray(forStmt.body.statements)) {
-        for (const s of forStmt.body.statements) {
-          this.analyzeStatement(s, callerFn);
-        }
-      }
-    }
-  }
-
-  /**
-   * CallExpression 분석
-   */
-  private analyzeCallExpression(call: CallExpression, callerFn: string): void {
-    if (!call.callee) return;
-
-    let calleeName: string | null = null;
-    let isBuiltin = false;
-
-    // 간단한 식별자 호출: foo()
-    if (call.callee.type === 'IdentifierExpression') {
-      calleeName = (call.callee as IdentifierExpression).value;
-    }
-    // 멤버 호출: obj.method()
-    else if (call.callee.type === 'MemberExpression') {
-      const member = call.callee as any;
-      if (member.object && member.property) {
-        const objName = member.object.type === 'IdentifierExpression'
-          ? (member.object as IdentifierExpression).value
-          : 'unknown';
-        const propName = member.property.type === 'IdentifierExpression'
-          ? (member.property as IdentifierExpression).value
-          : 'unknown';
-        calleeName = `${objName}.${propName}`;
-
-        if (BUILTIN_FUNCTIONS.has(calleeName)) {
-          isBuiltin = true;
-        }
-      }
-    }
-
-    if (!calleeName) return;
-
-    // Edge 추가
-    const edge: FunctionCall = {
-      caller: callerFn,
-      callee: calleeName,
-      line: call.line ?? 0,
-      confidence: isBuiltin ? 0.9 : 0.95,
-    };
-    this.callGraph.edges.push(edge);
-
-    // 노드 업데이트
-    const callerNode = this.callGraph.nodes.get(callerFn);
-    if (callerNode) {
-      if (!callerNode.callsTo.includes(calleeName)) {
-        callerNode.callsTo.push(calleeName);
-      }
-    }
-
-    // 호출된 함수가 정의되지 않았으면 추가 (미정의)
-    if (!this.callGraph.nodes.has(calleeName)) {
-      this.callGraph.nodes.set(calleeName, {
-        name: calleeName,
-        isDefined: false,
-        callsTo: [],
-        calledBy: [],
-        isBuiltin,
-      });
-    }
-
-    const calleeNode = this.callGraph.nodes.get(calleeName);
-    if (calleeNode && !calleeNode.calledBy.includes(callerFn)) {
-      calleeNode.calledBy.push(callerFn);
     }
   }
 
@@ -293,9 +230,9 @@ export class CallGraphBuilder {
   /**
    * 최종 Call Graph 생성
    */
-  build(statements: Statement[]): CallGraph {
-    this.collectFunctionDefinitions(statements);
-    this.analyzeFunctionCalls(statements);
+  build(functions: MinimalFunctionAST[]): CallGraph {
+    this.collectFunctionDefinitions(functions);
+    this.analyzeFunctionCalls(functions);
     this.computeRootFunctions();
     this.computeUnreachableFunctions();
 

@@ -1,41 +1,38 @@
 /**
  * Phase 3.4: CallGraphBuilder Tests
- * Task 1 검증: 기초 기능 (Step 2)
+ * Task 1 검증: 기초 기능 (Step 2, 재설계)
+ *
+ * 입력: MinimalFunctionAST[] 직접 생성
  */
 
-import { describe, it, expect, beforeAll } from '@jest/globals';
-import { Parser } from '../src/parser/parser';
-import { Lexer } from '../src/parser/lexer';
+import { describe, it, expect } from '@jest/globals';
 import { CallGraphBuilder } from '../src/analyzer/call-graph-builder';
-import { Statement } from '../src/parser/ast';
+import { MinimalFunctionAST } from '../src/parser/ast';
 
-describe('CallGraphBuilder - Step 2: Basic Functions', () => {
-  let parser: Parser;
-  let lexer: Lexer;
-
-  beforeAll(() => {
-    lexer = new Lexer();
-    parser = new Parser();
-  });
+describe('CallGraphBuilder - Basic Functions (Redesigned)', () => {
 
   /**
    * Test 1: 단순 함수 호출 추적
    * foo() -> bar()
    */
   it('should track simple function calls: foo calls bar', () => {
-    const code = `
-      fn foo() {
-        bar()
-      }
-      fn bar() {
-        return 42
-      }
-    `;
+    const functions: MinimalFunctionAST[] = [
+      {
+        fnName: 'foo',
+        inputType: 'null',
+        outputType: 'number',
+        body: 'bar()',
+      },
+      {
+        fnName: 'bar',
+        inputType: 'null',
+        outputType: 'number',
+        body: 'return 42',
+      },
+    ];
 
-    const tokens = lexer.tokenize(code);
-    const ast = parser.parse(tokens);
     const builder = new CallGraphBuilder();
-    const graph = builder.build(ast.statements);
+    const graph = builder.build(functions);
 
     // foo와 bar가 모두 정의되었는가?
     expect(graph.nodes.has('foo')).toBe(true);
@@ -55,22 +52,29 @@ describe('CallGraphBuilder - Step 2: Basic Functions', () => {
    * foo() -> bar() -> baz()
    */
   it('should track chained calls: foo -> bar -> baz', () => {
-    const code = `
-      fn foo() {
-        bar()
-      }
-      fn bar() {
-        baz()
-      }
-      fn baz() {
-        return 1
-      }
-    `;
+    const functions: MinimalFunctionAST[] = [
+      {
+        fnName: 'foo',
+        inputType: 'null',
+        outputType: 'number',
+        body: 'bar()',
+      },
+      {
+        fnName: 'bar',
+        inputType: 'null',
+        outputType: 'number',
+        body: 'baz()',
+      },
+      {
+        fnName: 'baz',
+        inputType: 'null',
+        outputType: 'number',
+        body: 'return 1',
+      },
+    ];
 
-    const tokens = lexer.tokenize(code);
-    const ast = parser.parse(tokens);
     const builder = new CallGraphBuilder();
-    const graph = builder.build(ast.statements);
+    const graph = builder.build(functions);
 
     expect(graph.nodes.get('foo')!.callsTo).toContain('bar');
     expect(graph.nodes.get('bar')!.callsTo).toContain('baz');
@@ -83,19 +87,23 @@ describe('CallGraphBuilder - Step 2: Basic Functions', () => {
    * bar는 foo에서만 호출됨
    */
   it('should identify root functions (not called by anyone)', () => {
-    const code = `
-      fn foo() {
-        bar()
-      }
-      fn bar() {
-        return 42
-      }
-    `;
+    const functions: MinimalFunctionAST[] = [
+      {
+        fnName: 'foo',
+        inputType: 'null',
+        outputType: 'number',
+        body: 'bar()',
+      },
+      {
+        fnName: 'bar',
+        inputType: 'null',
+        outputType: 'number',
+        body: 'return 42',
+      },
+    ];
 
-    const tokens = lexer.tokenize(code);
-    const ast = parser.parse(tokens);
     const builder = new CallGraphBuilder();
-    const graph = builder.build(ast.statements);
+    const graph = builder.build(functions);
 
     expect(graph.rootFunctions).toContain('foo');
     expect(graph.rootFunctions).not.toContain('bar');
@@ -103,19 +111,20 @@ describe('CallGraphBuilder - Step 2: Basic Functions', () => {
 
   /**
    * Test 4: 미정의 함수 추적
-   * foo() -> undefined() (정의되지 않은 함수)
+   * foo() -> undefined_func() (정의되지 않은 함수)
    */
   it('should track calls to undefined functions', () => {
-    const code = `
-      fn foo() {
-        undefined_func()
-      }
-    `;
+    const functions: MinimalFunctionAST[] = [
+      {
+        fnName: 'foo',
+        inputType: 'null',
+        outputType: 'number',
+        body: 'undefined_func()',
+      },
+    ];
 
-    const tokens = lexer.tokenize(code);
-    const ast = parser.parse(tokens);
     const builder = new CallGraphBuilder();
-    const graph = builder.build(ast.statements);
+    const graph = builder.build(functions);
 
     expect(graph.nodes.has('undefined_func')).toBe(true);
     const undefNode = graph.nodes.get('undefined_func')!;
@@ -128,16 +137,17 @@ describe('CallGraphBuilder - Step 2: Basic Functions', () => {
    * foo() -> console.log() (빌트인)
    */
   it('should identify builtin functions (console.log)', () => {
-    const code = `
-      fn foo() {
-        console.log(42)
-      }
-    `;
+    const functions: MinimalFunctionAST[] = [
+      {
+        fnName: 'foo',
+        inputType: 'null',
+        outputType: 'number',
+        body: 'console.log(42)',
+      },
+    ];
 
-    const tokens = lexer.tokenize(code);
-    const ast = parser.parse(tokens);
     const builder = new CallGraphBuilder();
-    const graph = builder.build(ast.statements);
+    const graph = builder.build(functions);
 
     const consoleLogNode = graph.nodes.get('console.log');
     expect(consoleLogNode).toBeDefined();
