@@ -154,31 +154,28 @@ export class TypeInferenceEngine {
 
   /**
    * Infer return type from function body
+   * IMPROVED: Better priority, avoid false positives
    *
-   * Strategies:
-   * - Look for "return" statements
-   * - Analyze last expression
-   * - Check operation results
+   * Strategies (in priority order):
+   * 1. Explicit return statements
+   * 2. Method calls on returned values
+   * 3. Array/string operations
+   * 4. Comparison/logical operations
    */
   public inferReturnType(body: string): string {
     const lines = body.split('\n');
 
-    // Strategy 1: Look for explicit return type
+    // Strategy 1: Explicit return statements (highest priority)
     for (const line of lines) {
       const returnMatch = line.match(/return\s+(.+)/);
       if (returnMatch) {
         const value = returnMatch[1].trim();
-        // Check for array methods in return value
-        if (value.includes('.map') || value.includes('.filter')) {
-          return 'array';
+
+        // Use our improved expression type inference
+        const type = this.inferExpressionType(value);
+        if (type !== 'any') {
+          return type;
         }
-        // Check for comparison operators first (before inferTypeFromValue)
-        if (value.includes('>') || value.includes('<') || value.includes('==') || value.includes('!=')) {
-          return 'bool';
-        }
-        // Check if return value is a variable
-        const type = this.inferTypeFromValue(value);
-        if (type) return type;
       }
     }
 
@@ -187,39 +184,38 @@ export class TypeInferenceEngine {
       return 'array';
     }
 
-    // Strategy 2b: String methods
-    if (body.includes('concat') || body.includes('substring')) {
+    // Strategy 3: String methods return strings
+    if (body.includes('.substring') || body.includes('.concat') ||
+        body.includes('.toUpperCase') || body.includes('.toLowerCase') ||
+        body.includes('.trim')) {
       return 'string';
     }
 
-    // Strategy 2c: Arithmetic operations
-    if (body.includes('+') || body.includes('-') || body.includes('*') || body.includes('/')) {
-      return 'number';
+    // Strategy 4: Array literal or array operations
+    if (body.includes('[]') || body.includes('.push') || body.includes('.pop')) {
+      return 'array';
     }
 
-    // Strategy 2d: Boolean operations (check after arithmetic to avoid false matches)
-    // Logical AND/OR return booleans
-    if (body.includes('&&') || body.includes('||')) {
-      return 'bool';
-    }
-
-    // Comparison operators in explicit return statements
-    for (const line of lines) {
-      if (line.includes('return')) {
-        // Check for comparison operators: > < >= <= == !=
-        if (line.includes('>') || line.includes('<') || line.includes('==') || line.includes('!=')) {
+    // Strategy 5: Logical/comparison operations (must check BEFORE arithmetic)
+    if (body.includes('&&') || body.includes('||') || body.includes('==') ||
+        body.includes('!=') || body.includes('>') || body.includes('<')) {
+      // Check if these are in return statements
+      for (const line of lines) {
+        if (line.includes('return') &&
+            (line.includes('>') || line.includes('<') || line.includes('==') ||
+             line.includes('!=') || line.includes('&&') || line.includes('||'))) {
           return 'bool';
         }
       }
     }
 
-    // Strategy 3: Look for array operations
-    if (body.includes('[') || body.includes('.push') || body.includes('.length')) {
-      return 'array';
+    // Strategy 6: Arithmetic operations (- * / for sure number, + might be string)
+    if (body.includes('-') || body.includes('*') || body.includes('/') || body.includes('%')) {
+      return 'number';
     }
 
-    // Default: assume number (most common in loops/arithmetic)
-    return 'number';
+    // Default: return 'any' instead of assuming number
+    return 'any';
   }
 
   /**
@@ -234,36 +230,45 @@ export class TypeInferenceEngine {
     const types = new Map<string, string>();
 
     for (const param of paramNames) {
-      let inferredType = 'number'; // default
+      let inferredType = 'any'; // default (avoid false positives)
 
-      // Check for array access: param[...]
-      if (new RegExp(`${param}\\[`).test(body)) {
-        inferredType = 'array';
-      }
+      // Priority 1: Method calls (most reliable)
 
-      // Check for arithmetic: param +/- /*/÷ ...
-      if (new RegExp(`${param}\\s*[+\\-*/]`).test(body)) {
-        inferredType = 'number';
-      }
-
-      // Check for string methods: param.length, param.substring, etc.
-      if (new RegExp(`${param}\\.(length|substring|concat|split)`).test(body)) {
+      // String methods: param.length, param.substring, param.concat, etc.
+      if (new RegExp(`${param}\\.(length|substring|concat|split|toUpperCase|toLowerCase|trim|includes)`).test(body)) {
         inferredType = 'string';
       }
-
-      // Check for array methods: param.map, param.filter, etc.
-      if (new RegExp(`${param}\\.(map|filter|reduce|forEach)`).test(body)) {
+      // Array methods: param.map, param.filter, param.reduce, etc.
+      else if (new RegExp(`${param}\\.(map|filter|reduce|forEach|push|pop|slice)`).test(body)) {
         inferredType = 'array';
       }
-
-      // Check for boolean operations
-      if (new RegExp(`${param}\\s*(&&|\\|\\||!|==|!=|>|<)`).test(body)) {
-        if (inferredType === 'number') {
-          // Comparison of numbers
+      // Priority 2: Array access: param[...]
+      else if (new RegExp(`${param}\\[`).test(body)) {
+        inferredType = 'array';
+      }
+      // Priority 3: Operations
+      else {
+        // Arithmetic operations (- * / % are definitely number)
+        if (new RegExp(`${param}\\s*[\\-*/%]`).test(body)) {
           inferredType = 'number';
-        } else if (new RegExp(`${param}\\s*(&&|\\|\\||!)`).test(body)) {
-          // Logical operation → boolean
-          inferredType = 'bool';
+        }
+        // Addition: could be string or number
+        else if (new RegExp(`${param}\\s*\\+`).test(body)) {
+          // Check context: if appears with string literals, it's string
+          const addContext = body.match(new RegExp(`[^\\n]*${param}[^\\n]*\\+[^\\n]*`));
+          if (addContext && /["']/.test(addContext[0])) {
+            inferredType = 'string';
+          } else {
+            inferredType = 'number';
+          }
+        }
+        // Comparison/logical operations
+        else if (new RegExp(`${param}\\s*(&&|\\|\\||!|==|!=|>|<)`).test(body)) {
+          if (new RegExp(`${param}\\s*(&&|\\|\\||!)`).test(body)) {
+            inferredType = 'bool';
+          } else {
+            inferredType = 'number'; // comparisons usually with numbers
+          }
         }
       }
 
@@ -275,13 +280,16 @@ export class TypeInferenceEngine {
 
   /**
    * Infer type of an expression
+   * IMPROVED: Better context awareness, correct binary operation typing
    *
    * Handles:
-   * - Binary operations: number + number = number
+   * - Binary operations: number + number = number, string + string = string
    * - Array operations: array.map = array
    * - Function calls: parseInt("123") = number
    */
   public inferExpressionType(expr: string): string {
+    // 1. Check literals first (most reliable)
+
     // Array literals: [1, 2, 3]
     if (expr.startsWith('[') && expr.endsWith(']')) {
       return 'array';
@@ -303,37 +311,57 @@ export class TypeInferenceEngine {
       return 'number';
     }
 
+    // 2. Check method calls (methods determine type)
+
     // Array methods return arrays
     if (expr.includes('.map') || expr.includes('.filter') || expr.includes('.slice')) {
       return 'array';
     }
 
-    // String methods
-    if (expr.includes('.substring') || expr.includes('.concat') || expr.includes('.split')) {
+    // String methods return strings
+    if (expr.includes('.substring') || expr.includes('.concat') || expr.includes('.split') ||
+        expr.includes('.toUpperCase') || expr.includes('.toLowerCase') || expr.includes('.trim')) {
       return 'string';
     }
 
-    // Function call results
-    if (expr.includes('parseInt')) return 'number';
+    // 3. Check function calls
+
+    if (expr.includes('parseInt') || expr.includes('parseFloat')) return 'number';
     if (expr.includes('Math.')) return 'number';
     if (expr.includes('JSON.parse')) return 'object';
 
-    // Arithmetic expressions
-    if (/[+\-*/%]/.test(expr) && !expr.includes('.')) {
+    // 4. Check binary operations (FIXED: better type handling)
+
+    // String concatenation: "text" + "more" or "text" + variable
+    // If expression contains both string literals and +, it's string
+    if (expr.includes('+')) {
+      const hasStringLiteral = /["']/.test(expr);
+      if (hasStringLiteral) {
+        return 'string';  // String concatenation
+      }
+      // Otherwise, could be number addition, but uncertain
+      // Return 'any' to avoid false positives
+      return 'any';
+    }
+
+    // Arithmetic: - * / % are only for numbers
+    if (/[\-*/%]/.test(expr) && !expr.includes('.')) {
       return 'number';
     }
 
-    // Comparison expressions return boolean
-    if (/[><=!]=?/.test(expr)) {
+    // 5. Check comparison/logical operations (before defaults)
+
+    // Comparison expressions return boolean (must check before +/-)
+    if (/[><=!]=?/.test(expr) && !expr.includes('++') && !expr.includes('--')) {
       return 'bool';
     }
 
-    // Logical expressions
+    // Logical expressions (AND, OR, NOT)
     if (/&&|\|\||!/.test(expr)) {
       return 'bool';
     }
 
-    // Default: unknown
+    // 6. Default
     return 'any';
   }
 
