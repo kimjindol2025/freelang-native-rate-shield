@@ -22,7 +22,15 @@
  * ```
  */
 
-import { Token } from './token';
+/**
+ * Token interface for lexical analysis
+ */
+interface Token {
+  type: string;
+  value: string;
+  line: number;
+  column: number;
+}
 
 /**
  * Type of completion suggestion

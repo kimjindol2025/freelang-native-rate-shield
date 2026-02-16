@@ -123,9 +123,17 @@ export class Phase2Compiler {
 
       // Step 2: Type inference
       const signature = this.typeInference.inferTypesForIncompleteCode(intent, code);
+
+      // Convert InferredType Map to string Map
+      const inputsMap = new Map<string, string>();
+      for (const [key, val] of signature.inputs) {
+        const typeStr = typeof val === 'string' ? val : (val as any).type || 'unknown';
+        inputsMap.set(key, typeStr);
+      }
+
       result.inferredSignature = {
         name: signature.name,
-        inputs: new Map(signature.inputs),
+        inputs: inputsMap,
         output: signature.output.type,
       };
 

@@ -56,3 +56,123 @@ export class ParseError extends Error {
     this.name = 'ParseError';
   }
 }
+
+/**
+ * Phase 2: Full AST Support
+ * Task 2.1-2.3에서 필요한 완전한 AST 타입들
+ */
+
+// 표현식 (Expression)
+export type Expression =
+  | LiteralExpression
+  | IdentifierExpression
+  | BinaryOpExpression
+  | CallExpression
+  | ArrayExpression
+  | MemberExpression;
+
+export interface LiteralExpression {
+  type: 'literal';
+  value: string | number | boolean;
+  dataType: 'number' | 'string' | 'bool';
+}
+
+export interface IdentifierExpression {
+  type: 'identifier';
+  name: string;
+}
+
+export interface BinaryOpExpression {
+  type: 'binary';
+  operator: '+' | '-' | '*' | '/' | '%' | '==' | '!=' | '>' | '<' | '>=' | '<=';
+  left: Expression;
+  right: Expression;
+}
+
+export interface CallExpression {
+  type: 'call';
+  callee: string;
+  arguments: Expression[];
+}
+
+export interface ArrayExpression {
+  type: 'array';
+  elements: Expression[];
+}
+
+export interface MemberExpression {
+  type: 'member';
+  object: Expression;
+  property: string;
+}
+
+// 문장 (Statement)
+export type Statement =
+  | ExpressionStatement
+  | VariableDeclaration
+  | IfStatement
+  | ForStatement
+  | WhileStatement
+  | ReturnStatement
+  | BlockStatement;
+
+export interface ExpressionStatement {
+  type: 'expression';
+  expression: Expression;
+}
+
+export interface VariableDeclaration {
+  type: 'variable';
+  name: string;
+  varType?: string;
+  value?: Expression;
+}
+
+export interface IfStatement {
+  type: 'if';
+  condition: Expression;
+  consequent: BlockStatement;
+  alternate?: BlockStatement;
+}
+
+export interface ForStatement {
+  type: 'for';
+  variable: string;
+  iterable: Expression;
+  body: BlockStatement;
+}
+
+export interface WhileStatement {
+  type: 'while';
+  condition: Expression;
+  body: BlockStatement;
+}
+
+export interface ReturnStatement {
+  type: 'return';
+  argument?: Expression;
+}
+
+export interface BlockStatement {
+  type: 'block';
+  body: Statement[];
+}
+
+// 함수 (FunctionStatement)
+export interface FunctionStatement {
+  type: 'function';
+  name: string;
+  params: Parameter[];
+  returnType?: string;
+  body: BlockStatement;
+  intent?: string;
+  source?: {
+    line: number;
+    column: number;
+  };
+}
+
+export interface Parameter {
+  name: string;
+  paramType?: string;
+}
