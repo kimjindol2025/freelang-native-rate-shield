@@ -13,6 +13,9 @@
 import { MinimalFunctionAST } from '../parser/ast';
 import { CallGraphBuilder, CallGraph } from './call-graph-builder';
 import { DataFlowGraphBuilder, DataFlowGraph, FunctionSignature } from './dataflow-graph';
+import { BooleanLiteralDetector } from './boolean-literal-detector';
+import { FunctionCallReturnInference } from './function-call-return-inference';
+import { ConditionalExpressionAnalyzer } from './conditional-expression-analyzer';
 
 /**
  * 반환값 타입 정보
@@ -107,6 +110,12 @@ export class ReturnTypePropagationEngine {
           inferredType = 'number';
           confidence = 0.95;
           info.reasonings.push('Literal number detected');
+        }
+        // Boolean 리터럴 반환 (Phase 3.5 추가)
+        else if (/^(true|false)$/i.test(returnValue)) {
+          inferredType = 'boolean';
+          confidence = 0.95;
+          info.reasonings.push('Boolean literal detected');
         }
         // 문자 반환
         else if (/^["'].*["']$/.test(returnValue)) {
