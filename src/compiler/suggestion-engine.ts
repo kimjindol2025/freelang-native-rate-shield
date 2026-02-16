@@ -643,6 +643,144 @@ export class SuggestionEngine {
   public getWarningCount(): number {
     return this.warnings.length;
   }
+
+  /**
+   * Phase 3: Apply user feedback and learn from corrections
+   *
+   * When a user corrects code, this method learns from their fix
+   * and adjusts confidence for future predictions
+   *
+   * Example:
+   * 1. Engine suggests: "x = sum +" → "x = sum + 0" (confidence: 0.8)
+   * 2. User actually writes: "x = sum + item" (different but correct)
+   * 3. recordUserChoice() learns: "When numeric pattern detected, prefer item-based"
+   */
+  public recordUserChoice(
+    warningIndex: number,
+    userAcceptedSuggestion: boolean,
+    userProvidedAlternative?: string
+  ): {
+    learned: boolean;
+    newConfidence: number;
+    warningType: WarningType;
+  } {
+    if (warningIndex < 0 || warningIndex >= this.warnings.length) {
+      return {
+        learned: false,
+        newConfidence: 0,
+        warningType: WarningType.STYLE_ISSUE, // Dummy type for error case
+      };
+    }
+
+    const warning = this.warnings[warningIndex];
+
+    // Record the learning entry
+    this.recordFeedback(
+      warning.type,
+      warning.code,
+      warning.suggestion,
+      userAcceptedSuggestion,
+      userProvidedAlternative
+    );
+
+    // Get adjusted confidence
+    const newConfidence = this.getAdjustedConfidence(warning.type);
+
+    return {
+      learned: true,
+      newConfidence,
+      warningType: warning.type,
+    };
+  }
+
+  /**
+   * Phase 3: Get adjusted confidence based on learning history
+   *
+   * This adapts confidence scores based on historical accuracy
+   * of each warning type
+   *
+   * Formula: newConfidence = baseConfidence * (correctRate * 0.3 + 0.7)
+   * - If correctRate = 100%, multiplier = 1.0 (highest confidence)
+   * - If correctRate = 0%, multiplier = 0.7 (reduce but not eliminate)
+   */
+  public getAdjustedConfidence(warningType: WarningType | string): number {
+    // Check if we have learning data for this type
+    const adjustment = this.confidenceAdjustments.get(warningType);
+
+    if (adjustment !== undefined) {
+      // We have historical data - use it to adjust
+      // adjustment is the success rate (0.0 - 1.0)
+      const baseConfidence = 0.8; // Default base
+      const adjustedConfidence = baseConfidence * (adjustment * 0.3 + 0.7);
+      return Math.min(0.98, Math.max(0.5, adjustedConfidence)); // Clamp to [0.5, 0.98]
+    }
+
+    // No learning data yet - return default
+    return 0.8;
+  }
+
+  /**
+   * Phase 3: Generate suggestions with adaptive confidence
+   *
+   * Instead of static confidence, adapt based on what we've learned
+   * about this type of warning in the past
+   */
+  public suggestWithAdaptation(code: string, intent?: string): CompileWarning[] {
+    // First, get regular analysis
+    const baseWarnings = this.analyze(code, intent);
+
+    // Then, adjust confidence based on learning history
+    const adaptedWarnings = baseWarnings.map(warning => ({
+      ...warning,
+      confidence: this.getAdjustedConfidence(warning.type),
+    }));
+
+    // Re-sort by adjusted priority
+    adaptedWarnings.sort((a, b) => {
+      const priorityA = a.priority * (1 - a.confidence * 0.2);
+      const priorityB = b.priority * (1 - b.confidence * 0.2);
+      return priorityA - priorityB;
+    });
+
+    return adaptedWarnings;
+  }
+
+  /**
+   * Phase 3: Get learning effectiveness metrics
+   *
+   * Shows how well the learning system is performing
+   */
+  public getLearningMetrics(): {
+    totalInteractions: number;
+    acceptanceRate: number;
+    precisionByType: Map<string, number>;
+    suggestedVsUserFixes: number;
+  } {
+    const stats = this.getLearningStats();
+
+    // Calculate precision by warning type
+    const precisionByType = new Map<string, number>();
+    const warningTypes = new Set(this.learningHistory.map(e => e.warningType));
+
+    for (const type of warningTypes) {
+      const typeEntries = this.learningHistory.filter(e => e.warningType === type);
+      const correctCount = typeEntries.filter(e => e.actualCorrectness > 0.5).length;
+      const precision = correctCount / typeEntries.length;
+      precisionByType.set(type, precision);
+    }
+
+    // Count how many times user provided better fix
+    const suggestedVsUserFixes = this.learningHistory.filter(
+      e => e.userProvidedFix && e.userProvidedFix !== e.suggestedFix
+    ).length;
+
+    return {
+      totalInteractions: stats.totalEntries,
+      acceptanceRate: stats.acceptanceRate,
+      precisionByType,
+      suggestedVsUserFixes,
+    };
+  }
 }
 
 // Convenience function
