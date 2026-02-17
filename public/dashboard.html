@@ -562,10 +562,16 @@
      * 통계 업데이트
      */
     function updateStats(stats) {
-      document.getElementById('total-patterns').textContent = stats.total_patterns;
-      document.getElementById('avg-confidence').textContent = (stats.avg_confidence * 100).toFixed(0) + '%';
-      document.getElementById('avg-approval').textContent = (stats.avg_approval_rate * 100).toFixed(0) + '%';
-      document.getElementById('total-feedbacks').textContent = stats.total_feedbacks;
+      // Null/undefined 체크
+      if (!stats) {
+        console.warn('통계 데이터 없음');
+        return;
+      }
+
+      document.getElementById('total-patterns').textContent = stats.total_patterns || 0;
+      document.getElementById('avg-confidence').textContent = ((stats.avg_confidence || 0) * 100).toFixed(0) + '%';
+      document.getElementById('avg-approval').textContent = ((stats.avg_approval_rate || 0) * 100).toFixed(0) + '%';
+      document.getElementById('total-feedbacks').textContent = stats.total_feedbacks || 0;
 
       // 많이 사용된 패턴
       const tbody = document.getElementById('most-used-body');
@@ -610,11 +616,28 @@
      * 학습 진행률 업데이트
      */
     function updateProgress(progress) {
-      const percent = progress.progress_percentage.toFixed(1);
+      // Null/undefined 체크
+      if (!progress || typeof progress.progress_percentage === 'undefined') {
+        console.warn('학습 진행률 데이터 없음');
+        document.getElementById('learning-progress').innerHTML = `
+          <div style="margin-bottom: 20px;">
+            <h3 style="color: #667eea; margin-bottom: 10px;">데이터 로드 중...</h3>
+            <div class="progress-bar" style="height: 12px;">
+              <div class="progress-fill" style="width: 0%; height: 100%;"></div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const percent = (progress.progress_percentage || 0).toFixed(1);
+      const improved = progress.improved_patterns || 0;
+      const total = progress.total_patterns || 0;
+
       document.getElementById('learning-progress').innerHTML = `
         <div style="margin-bottom: 20px;">
           <h3 style="color: #667eea; margin-bottom: 10px;">
-            ${progress.improved_patterns} / ${progress.total_patterns} 패턴 개선됨
+            ${improved} / ${total} 패턴 개선됨
           </h3>
           <div class="progress-bar" style="height: 12px;">
             <div class="progress-fill" style="width: ${percent}%; height: 100%;"></div>

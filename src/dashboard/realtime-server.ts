@@ -469,6 +469,28 @@ export class RealtimeDashboardServer {
             response = this.dashboard.getFeedbackSummary();
             break;
 
+          case '/api/dashboard/learning-progress':
+            response = this.dashboard.getLearningProgress();
+            break;
+
+          case '/api/dashboard/export/json':
+            response = this.dashboard.exportToJSON();
+            break;
+
+          case '/api/dashboard/export/csv':
+            response = this.dashboard.exportTrendsToCSV();
+            statusCode = 200;
+            // CSV는 text/plain으로 반환
+            res.writeHead(statusCode, { 'Content-Type': 'text/csv; charset=utf-8' });
+            res.end(response);
+            return;
+
+          case '/favicon.ico':
+            // favicon 요청 무시
+            res.writeHead(204);
+            res.end();
+            return;
+
           default:
             statusCode = 404;
             response = { error: 'API endpoint not found' };
