@@ -51,6 +51,18 @@ export class FeedbackCollector {
   private lastAnalysisTime: number = 0;
   private analysisInterval: number = 60000; // 1분마다 분석
 
+  private overallStatsCache: {
+    totalRecords: number;
+    totalPatterns: number;
+    overallSuccessRate: number;
+    averageExecutionTime: number;
+    averageMemoryUsed: number;
+    mostUsedPattern: string;
+    leastSuccessfulPattern: string;
+  } | null = null;
+  private lastOverallStatsTime: number = 0;
+  private cacheValidityMs: number = 1000; // 1초 캐시 유효기간
+
   constructor() {
     // 초기화
     this.records = [];
@@ -87,6 +99,7 @@ export class FeedbackCollector {
 
     // 캐시 무효화
     this.statsCache.delete(patternId);
+    this.overallStatsCache = null;  // 전체 통계 캐시도 무효화
 
     return record;
   }
@@ -267,9 +280,18 @@ export class FeedbackCollector {
     mostUsedPattern: string;
     leastSuccessfulPattern: string;
   } {
+    // 캐시 확인: 1초 이내면 캐시된 결과 반환
+    const now = Date.now();
+    if (
+      this.overallStatsCache !== null &&
+      now - this.lastOverallStatsTime < this.cacheValidityMs
+    ) {
+      return this.overallStatsCache;
+    }
+
     const totalRecords = this.records.length;
     if (totalRecords === 0) {
-      return {
+      const emptyStats = {
         totalRecords: 0,
         totalPatterns: 0,
         overallSuccessRate: 0,
@@ -278,31 +300,59 @@ export class FeedbackCollector {
         mostUsedPattern: '',
         leastSuccessfulPattern: ''
       };
+      this.overallStatsCache = emptyStats;
+      this.lastOverallStatsTime = now;
+      return emptyStats;
     }
 
-    const patternIds = new Set(this.records.map(r => r.patternId));
-    const successes = this.records.filter(r => r.success).length;
+    // 빠른 계산 (단순 수치들)
+    const patternIds = new Set<string>();
+    let totalExecutionTime = 0;
+    let totalMemory = 0;
+    let successes = 0;
 
-    const allStats = Array.from(patternIds)
-      .map(id => this.getUsageStats(id))
-      .filter((s): s is PatternStats => s !== null);
+    for (const record of this.records) {
+      patternIds.add(record.patternId);
+      totalExecutionTime += record.executionTime;
+      totalMemory += record.memoryUsed;
+      if (record.success) successes++;
+    }
 
-    const mostUsed = allStats.reduce((a, b) => (a.totalUses > b.totalUses ? a : b));
-    const leastSuccessful = allStats.reduce((a, b) =>
-      a.successRate < b.successRate ? a : b
-    );
+    // 패턴 통계는 필요한 것만 계산
+    let mostUsedPattern = '';
+    let leastSuccessfulPattern = '';
+    let maxUses = -1;
+    let minSuccessRate = 2; // 1.0보다 큼
 
-    return {
+    for (const patternId of patternIds) {
+      const stats = this.getUsageStats(patternId);
+      if (stats) {
+        if (stats.totalUses > maxUses) {
+          maxUses = stats.totalUses;
+          mostUsedPattern = patternId;
+        }
+        if (stats.successRate < minSuccessRate) {
+          minSuccessRate = stats.successRate;
+          leastSuccessfulPattern = patternId;
+        }
+      }
+    }
+
+    const result = {
       totalRecords,
       totalPatterns: patternIds.size,
       overallSuccessRate: successes / totalRecords,
-      averageExecutionTime:
-        this.records.reduce((sum, r) => sum + r.executionTime, 0) / totalRecords,
-      averageMemoryUsed:
-        this.records.reduce((sum, r) => sum + r.memoryUsed, 0) / totalRecords,
-      mostUsedPattern: mostUsed.patternId,
-      leastSuccessfulPattern: leastSuccessful.patternId
+      averageExecutionTime: totalExecutionTime / totalRecords,
+      averageMemoryUsed: totalMemory / totalRecords,
+      mostUsedPattern,
+      leastSuccessfulPattern
     };
+
+    // 결과 캐싱
+    this.overallStatsCache = result;
+    this.lastOverallStatsTime = now;
+
+    return result;
   }
 
   /**
@@ -311,6 +361,7 @@ export class FeedbackCollector {
   clear(): void {
     this.records = [];
     this.statsCache.clear();
+    this.overallStatsCache = null;
   }
 
   /**
