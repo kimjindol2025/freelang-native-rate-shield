@@ -22,6 +22,37 @@ export { Op, Inst, AIIntent, VMResult, CompileResult };
 export type { CorrectionResult, HeaderProposal, PipelineInput, PipelineOutput };
 export { AutoHeaderEngine, Pipeline };
 
+// Phase 12: Threading Exports
+export {
+  RealThreadManager,
+  ThreadManager,
+  createRealThreadManager,
+  createThreadManager
+} from './phase-12/thread-manager';
+
+export {
+  WorkerPool,
+  getGlobalPool,
+  runInWorker
+} from './phase-12/worker-pool';
+
+export {
+  AtomicMutex,
+  SharedAtomicMutex
+} from './phase-12/atomic-mutex';
+
+export {
+  MessageChannel,
+  RequestResponseChannel
+} from './phase-12/message-channel';
+
+export {
+  runFreeLangInThread,
+  runFreeLangInParallel,
+  runFreeLangBatch,
+  estimateSpeedup
+} from './phase-12/freelang-worker';
+
 export interface ExecResult {
   // VM execution
   vm: VMResult;

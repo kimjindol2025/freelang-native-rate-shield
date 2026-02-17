@@ -580,6 +580,153 @@ export const BUILTINS: Record<string, BuiltinSpec> = {
       return 0;
     },
   },
+
+  // ────────────────────────────────────────
+  // Threading (Phase 12 - Worker Threads)
+  // ────────────────────────────────────────
+
+  spawn_thread: {
+    name: 'spawn_thread',
+    params: [{ name: 'task', type: 'function' }],
+    return_type: 'thread_handle',
+    c_name: 'freelang_spawn_thread',
+    headers: ['freelang_ffi.h', 'uv.h'],
+    impl: async (fn: Function) => {
+      try {
+        const { createRealThreadManager } = await import('../phase-12/thread-manager');
+        const manager = createRealThreadManager();
+        return await manager.spawnThread(fn);
+      } catch (error) {
+        console.error('spawn_thread failed:', error);
+        throw error;
+      }
+    },
+  },
+
+  join_thread: {
+    name: 'join_thread',
+    params: [
+      { name: 'handle', type: 'thread_handle' },
+      { name: 'timeout', type: 'number' },
+    ],
+    return_type: 'any',
+    c_name: 'freelang_join_thread',
+    headers: ['freelang_ffi.h', 'uv.h'],
+    impl: async (handle: any, timeout?: number) => {
+      try {
+        const { createRealThreadManager } = await import('../phase-12/thread-manager');
+        const manager = createRealThreadManager();
+        return await manager.join(handle, timeout);
+      } catch (error) {
+        console.error('join_thread failed:', error);
+        throw error;
+      }
+    },
+  },
+
+  create_mutex: {
+    name: 'create_mutex',
+    params: [],
+    return_type: 'mutex',
+    c_name: 'freelang_create_mutex',
+    headers: ['freelang_ffi.h', 'pthread.h'],
+    impl: () => {
+      try {
+        const { AtomicMutex } = require('../phase-12/atomic-mutex');
+        return new AtomicMutex();
+      } catch (error) {
+        console.error('create_mutex failed:', error);
+        throw error;
+      }
+    },
+  },
+
+  mutex_lock: {
+    name: 'mutex_lock',
+    params: [{ name: 'mutex', type: 'mutex' }],
+    return_type: 'void',
+    c_name: 'freelang_mutex_lock',
+    headers: ['freelang_ffi.h', 'pthread.h'],
+    impl: async (mutex: any) => {
+      try {
+        await mutex.lock();
+      } catch (error) {
+        console.error('mutex_lock failed:', error);
+        throw error;
+      }
+    },
+  },
+
+  mutex_unlock: {
+    name: 'mutex_unlock',
+    params: [{ name: 'mutex', type: 'mutex' }],
+    return_type: 'void',
+    c_name: 'freelang_mutex_unlock',
+    headers: ['freelang_ffi.h', 'pthread.h'],
+    impl: (mutex: any) => {
+      try {
+        mutex.unlock();
+      } catch (error) {
+        console.error('mutex_unlock failed:', error);
+        throw error;
+      }
+    },
+  },
+
+  create_channel: {
+    name: 'create_channel',
+    params: [],
+    return_type: 'channel',
+    c_name: 'freelang_create_channel',
+    headers: ['freelang_ffi.h'],
+    impl: () => {
+      try {
+        const { MessageChannel } = require('../phase-12/message-channel');
+        return new MessageChannel();
+      } catch (error) {
+        console.error('create_channel failed:', error);
+        throw error;
+      }
+    },
+  },
+
+  channel_send: {
+    name: 'channel_send',
+    params: [
+      { name: 'channel', type: 'channel' },
+      { name: 'message', type: 'any' },
+    ],
+    return_type: 'void',
+    c_name: 'freelang_channel_send',
+    headers: ['freelang_ffi.h'],
+    impl: async (channel: any, message: any) => {
+      try {
+        await channel.send(message);
+      } catch (error) {
+        console.error('channel_send failed:', error);
+        throw error;
+      }
+    },
+  },
+
+  channel_recv: {
+    name: 'channel_recv',
+    params: [
+      { name: 'channel', type: 'channel' },
+      { name: 'timeout', type: 'number' },
+    ],
+    return_type: 'any',
+    c_name: 'freelang_channel_recv',
+    headers: ['freelang_ffi.h'],
+    impl: async (channel: any, timeout?: number) => {
+      try {
+        return await channel.receive(timeout);
+      } catch (error) {
+        console.error('channel_recv failed:', error);
+        throw error;
+      }
+    },
+  },
 };
 
 // ────────────────────────────────────────

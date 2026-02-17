@@ -79,6 +79,16 @@ export enum Op {
 
   // Debug (AI reads structured output)
   DUMP      = 0xF0,
+
+  // Threading (Phase 12 - Worker Threads)
+  SPAWN_THREAD = 0xA0,   // spawn_thread(fn) → thread_handle
+  JOIN_THREAD = 0xA1,    // join_thread(handle, timeout) → result
+  MUTEX_CREATE = 0xA2,   // create_mutex() → mutex_handle
+  MUTEX_LOCK = 0xA3,     // mutex_lock(mutex)
+  MUTEX_UNLOCK = 0xA4,   // mutex_unlock(mutex)
+  CHANNEL_CREATE = 0xA5, // create_channel() → channel_handle
+  CHANNEL_SEND = 0xA6,   // channel_send(channel, message)
+  CHANNEL_RECV = 0xA7,   // channel_recv(channel, timeout) → message
 }
 
 // ── IR Instruction ──────────────────────────────────────────
@@ -146,4 +156,27 @@ export interface PatternEntry {
   fail_count: number;
   avg_cycles: number;
   last_used: number;             // unix timestamp ms
+}
+
+// ── Threading Types (Phase 12) ──────────────────────────────
+export interface ThreadHandle {
+  id: string;
+  state: 'pending' | 'completed' | 'failed' | 'terminated';
+  startTime: number;
+  result?: any;
+  error?: Error;
+  duration?: number;
+}
+
+export interface Mutex {
+  lock(): Promise<void>;
+  unlock(): void;
+  tryLock(): boolean;
+  withLock<T>(fn: () => Promise<T>): Promise<T>;
+}
+
+export interface Channel<T = any> {
+  send(message: T): Promise<void>;
+  receive(timeout?: number): Promise<T>;
+  close(): void;
 }
