@@ -30,7 +30,24 @@
  */
 import { Token, TokenType } from '../lexer/token';
 import { TokenBuffer } from '../lexer/lexer';
-import { MinimalFunctionAST, ParseError } from './ast';
+import {
+  MinimalFunctionAST,
+  ParseError,
+  Expression,
+  Pattern,
+  MatchExpression,
+  MatchArm,
+  IdentifierExpression,
+  LiteralExpression,
+  BinaryOpExpression,
+  CallExpression,
+  ArrayExpression,
+  LiteralPattern,
+  VariablePattern,
+  WildcardPattern,
+  StructPattern,
+  ArrayPattern
+} from './ast';
 
 /**
  * Minimal Parser - .free 파일 형식만 파싱
@@ -319,6 +336,424 @@ export class Parser {
     }
 
     return bodyTokens.join(' ').trim();
+  }
+
+  /**
+   * Phase 15: 표현식 파싱
+   *
+   * 기본 표현식들:
+   *   - match 표현식
+   *   - 리터럴 (숫자, 문자열, 불린)
+   *   - 식별자
+   *   - 함수 호출
+   *   - 배열
+   *   - 이항 연산
+   */
+  public parseExpression(): Expression {
+    // match 표현식 확인
+    if (this.check(TokenType.MATCH)) {
+      return this.parseMatch();
+    }
+
+    // 기본 표현식 + 이항 연산
+    return this.parseComparison();
+  }
+
+  /**
+   * 이항 연산 파싱 (우선순위 순서)
+   * 1. Comparison (==, !=, <, >, <=, >=)
+   * 2. Additive (+, -)
+   * 3. Multiplicative (*, /, %)
+   */
+  private parseComparison(): Expression {
+    let left = this.parseAdditive();
+
+    // 비교 연산자 처리 (==, !=, <, >, <=, >=)
+    while (
+      this.check(TokenType.EQ) ||
+      this.check(TokenType.NE) ||
+      this.check(TokenType.LT) ||
+      this.check(TokenType.GT) ||
+      this.check(TokenType.LE) ||
+      this.check(TokenType.GE)
+    ) {
+      let operator: '==' | '!=' | '>' | '<' | '>=' | '<=' = '==';
+
+      if (this.check(TokenType.EQ)) operator = '==';
+      else if (this.check(TokenType.NE)) operator = '!=';
+      else if (this.check(TokenType.LT)) operator = '<';
+      else if (this.check(TokenType.GT)) operator = '>';
+      else if (this.check(TokenType.LE)) operator = '<=';
+      else if (this.check(TokenType.GE)) operator = '>=';
+
+      this.advance();
+      const right = this.parseAdditive();
+
+      left = {
+        type: 'binary',
+        operator,
+        left,
+        right
+      } as BinaryOpExpression;
+    }
+
+    return left;
+  }
+
+  /**
+   * 덧셈/뺄셈 파싱 (+, -)
+   */
+  private parseAdditive(): Expression {
+    let left = this.parseMultiplicative();
+
+    while (this.check(TokenType.PLUS) || this.check(TokenType.MINUS)) {
+      let operator: '+' | '-' = '+';
+
+      if (this.check(TokenType.PLUS)) operator = '+';
+      else if (this.check(TokenType.MINUS)) operator = '-';
+
+      this.advance();
+      const right = this.parseMultiplicative();
+
+      left = {
+        type: 'binary',
+        operator,
+        left,
+        right
+      } as BinaryOpExpression;
+    }
+
+    return left;
+  }
+
+  /**
+   * 곱셈/나눗셈/나머지 파싱 (*, /, %)
+   */
+  private parseMultiplicative(): Expression {
+    let left = this.parsePrimaryExpression();
+
+    while (
+      this.check(TokenType.STAR) ||
+      this.check(TokenType.SLASH) ||
+      this.check(TokenType.PERCENT)
+    ) {
+      let operator: '*' | '/' | '%' = '*';
+
+      if (this.check(TokenType.STAR)) operator = '*';
+      else if (this.check(TokenType.SLASH)) operator = '/';
+      else if (this.check(TokenType.PERCENT)) operator = '%';
+
+      this.advance();
+      const right = this.parsePrimaryExpression();
+
+      left = {
+        type: 'binary',
+        operator,
+        left,
+        right
+      } as BinaryOpExpression;
+    }
+
+    return left;
+  }
+
+  /**
+   * Phase 15: 기본 표현식 파싱
+   * (리터럴, 식별자, 배열, 함수 호출)
+   */
+  private parsePrimaryExpression(): Expression {
+    const token = this.current();
+
+    // 리터럴 (숫자, 문자열, 불린)
+    if (this.check(TokenType.NUMBER)) {
+      const value = parseFloat(token.value);
+      this.advance();
+      return {
+        type: 'literal',
+        value,
+        dataType: 'number'
+      } as LiteralExpression;
+    }
+
+    if (this.check(TokenType.STRING)) {
+      const value = token.value;
+      this.advance();
+      return {
+        type: 'literal',
+        value,
+        dataType: 'string'
+      } as LiteralExpression;
+    }
+
+    // 불린 리터럴
+    if (this.check(TokenType.TRUE) || this.check(TokenType.FALSE)) {
+      const value = this.check(TokenType.TRUE);
+      this.advance();
+      return {
+        type: 'literal',
+        value,
+        dataType: 'bool'
+      } as LiteralExpression;
+    }
+
+    // null 리터럴
+    if (this.check(TokenType.NULL)) {
+      this.advance();
+      return {
+        type: 'literal',
+        value: null,
+        dataType: 'string'  // 단순 표현용
+      } as any;
+    }
+
+    // 배열 리터럴 [...]
+    if (this.check(TokenType.LBRACKET)) {
+      this.advance(); // [
+      const elements: Expression[] = [];
+
+      while (!this.check(TokenType.RBRACKET) && !this.check(TokenType.EOF)) {
+        elements.push(this.parseExpression());
+        if (this.check(TokenType.COMMA)) {
+          this.advance();
+        }
+      }
+
+      this.expect(TokenType.RBRACKET, 'Expected "]"');
+      return {
+        type: 'array',
+        elements
+      } as ArrayExpression;
+    }
+
+    // 식별자 또는 함수 호출
+    if (this.check(TokenType.IDENT)) {
+      const name = token.value;
+      this.advance();
+
+      // 함수 호출 (...)
+      if (this.check(TokenType.LPAREN)) {
+        this.advance(); // (
+        const args: Expression[] = [];
+
+        while (!this.check(TokenType.RPAREN) && !this.check(TokenType.EOF)) {
+          args.push(this.parseExpression());
+          if (this.check(TokenType.COMMA)) {
+            this.advance();
+          }
+        }
+
+        this.expect(TokenType.RPAREN, 'Expected ")"');
+        return {
+          type: 'call',
+          callee: name,
+          arguments: args
+        } as CallExpression;
+      }
+
+      // 단순 식별자
+      return {
+        type: 'identifier',
+        name
+      } as IdentifierExpression;
+    }
+
+    throw new ParseError(
+      token.line,
+      token.column,
+      `Unexpected token in expression: ${token.type}`
+    );
+  }
+
+  /**
+   * Phase 15: Match 표현식 파싱
+   *
+   * 형식:
+   *   match <scrutinee> {
+   *     | <pattern> [if <guard>] → <body>
+   *     | <pattern> [if <guard>] → <body>
+   *     ...
+   *   }
+   */
+  private parseMatch(): MatchExpression {
+    // consume 'match'
+    this.expect(TokenType.MATCH, 'Expected "match"');
+
+    // Parse scrutinee (매칭할 값)
+    const scrutinee = this.parseExpression();
+
+    // Expect {
+    this.expect(TokenType.LBRACE, 'Expected "{"');
+
+    const arms: MatchArm[] = [];
+
+    // Parse match arms
+    while (!this.check(TokenType.RBRACE) && !this.check(TokenType.EOF)) {
+      // Pipe 토큰 (| - BIT_OR로 토큰화됨)
+      if (this.check(TokenType.BIT_OR)) {
+        this.advance();
+      }
+
+      // Pattern 파싱
+      const pattern = this.parsePattern();
+
+      // Guard 파싱 (if 조건)
+      let guard: Expression | undefined;
+      if (this.check(TokenType.IF)) {
+        this.advance();
+        guard = this.parseExpression();
+      }
+
+      // Arrow (=> FAT_ARROW)
+      if (this.check(TokenType.FAT_ARROW)) {
+        this.advance();
+      } else {
+        throw new ParseError(
+          this.current().line,
+          this.current().column,
+          'Expected "=>" in match arm'
+        );
+      }
+
+      // Body 파싱
+      const body = this.parseExpression();
+
+      arms.push({ pattern, guard, body });
+
+      // Optional comma
+      if (this.check(TokenType.COMMA)) {
+        this.advance();
+      }
+    }
+
+    this.expect(TokenType.RBRACE, 'Expected "}"');
+
+    return {
+      type: 'match',
+      scrutinee,
+      arms
+    };
+  }
+
+  /**
+   * Phase 15: Pattern 파싱
+   *
+   * 지원하는 패턴:
+   *   - 리터럴: 1, 2.5, "string", true
+   *   - 와일드카드: _
+   *   - 변수 바인딩: x, count, value
+   *   - 구조체: {field1: pattern1, field2: pattern2}
+   *   - 배열: [pattern1, pattern2, ...]
+   */
+  private parsePattern(): Pattern {
+    const token = this.current();
+
+    // 와일드카드 _
+    if (this.check(TokenType.IDENT) && token.value === '_') {
+      this.advance();
+      return { type: 'wildcard' } as WildcardPattern;
+    }
+
+    // 리터럴
+    if (this.check(TokenType.NUMBER)) {
+      const value = parseFloat(token.value);
+      this.advance();
+      return {
+        type: 'literal',
+        value
+      } as LiteralPattern;
+    }
+
+    if (this.check(TokenType.STRING)) {
+      const value = token.value;
+      this.advance();
+      return {
+        type: 'literal',
+        value
+      } as LiteralPattern;
+    }
+
+    // 불린 리터럴
+    if (this.check(TokenType.TRUE) || this.check(TokenType.FALSE)) {
+      const value = this.check(TokenType.TRUE);
+      this.advance();
+      return {
+        type: 'literal',
+        value
+      } as LiteralPattern;
+    }
+
+    // 배열 패턴 [...]
+    if (this.check(TokenType.LBRACKET)) {
+      this.advance(); // [
+      const elements: Pattern[] = [];
+
+      while (!this.check(TokenType.RBRACKET) && !this.check(TokenType.EOF)) {
+        elements.push(this.parsePattern());
+        if (this.check(TokenType.COMMA)) {
+          this.advance();
+        }
+      }
+
+      this.expect(TokenType.RBRACKET, 'Expected "]"');
+      return {
+        type: 'array',
+        elements
+      } as ArrayPattern;
+    }
+
+    // 구조체 패턴 {...} 또는 변수 바인딩
+    if (this.check(TokenType.LBRACE)) {
+      this.advance(); // {
+
+      const fields: Record<string, Pattern> = {};
+      let isStruct = false;
+
+      // 필드가 있는지 확인
+      if (!this.check(TokenType.RBRACE)) {
+        const firstToken = this.current();
+
+        // field: pattern 형식 확인
+        if (this.check(TokenType.IDENT) && this.peek(1).type === TokenType.COLON) {
+          isStruct = true;
+
+          while (!this.check(TokenType.RBRACE) && !this.check(TokenType.EOF)) {
+            const fieldName = this.expect(TokenType.IDENT, 'Expected field name').value;
+            this.expect(TokenType.COLON, 'Expected ":"');
+            const fieldPattern = this.parsePattern();
+            fields[fieldName] = fieldPattern;
+
+            if (this.check(TokenType.COMMA)) {
+              this.advance();
+            }
+          }
+        }
+      }
+
+      this.expect(TokenType.RBRACE, 'Expected "}"');
+
+      if (isStruct) {
+        return {
+          type: 'struct',
+          fields
+        } as StructPattern;
+      }
+    }
+
+    // 변수 바인딩 (식별자)
+    if (this.check(TokenType.IDENT)) {
+      const name = token.value;
+      this.advance();
+      return {
+        type: 'variable',
+        name
+      } as VariablePattern;
+    }
+
+    throw new ParseError(
+      token.line,
+      token.column,
+      `Unexpected token in pattern: ${token.type}`
+    );
   }
 
   /**

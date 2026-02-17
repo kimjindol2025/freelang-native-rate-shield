@@ -69,7 +69,8 @@ export type Expression =
   | BinaryOpExpression
   | CallExpression
   | ArrayExpression
-  | MemberExpression;
+  | MemberExpression
+  | MatchExpression;
 
 export interface LiteralExpression {
   type: 'literal';
@@ -104,6 +105,57 @@ export interface MemberExpression {
   type: 'member';
   object: Expression;
   property: string;
+}
+
+/**
+ * Phase 15: Pattern Matching
+ * Rust 스타일의 match 표현식 지원
+ */
+
+// Pattern 타입 (5가지 패턴)
+export type Pattern =
+  | LiteralPattern
+  | VariablePattern
+  | WildcardPattern
+  | StructPattern
+  | ArrayPattern;
+
+export interface LiteralPattern {
+  type: 'literal';
+  value: string | number | boolean;
+}
+
+export interface VariablePattern {
+  type: 'variable';
+  name: string;
+}
+
+export interface WildcardPattern {
+  type: 'wildcard';
+}
+
+export interface StructPattern {
+  type: 'struct';
+  fields: Record<string, Pattern>;
+}
+
+export interface ArrayPattern {
+  type: 'array';
+  elements: Pattern[];
+}
+
+// Match arm (패턴 → 표현식)
+export interface MatchArm {
+  pattern: Pattern;
+  guard?: Expression;  // if 조건 (선택사항)
+  body: Expression;
+}
+
+// Match 표현식
+export interface MatchExpression {
+  type: 'match';
+  scrutinee: Expression;  // 매칭할 값
+  arms: MatchArm[];
 }
 
 // 문장 (Statement)
