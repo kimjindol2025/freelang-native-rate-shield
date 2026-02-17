@@ -4,6 +4,7 @@
  */
 
 #include "ratelimit.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -117,7 +118,7 @@ int fl_ratelimit_set_client_limit(fl_ratelimit_t *limiter, const char *identifie
   fl_ratelimit_client_t *client = &limiter->clients[limiter->client_count];
   
   client->identifier = (char*)malloc(strlen(identifier) + 1);
-  strcpy(client->identifier, identifier);
+  SAFE_STRCPY(client->identifier, identifier);
   client->rate_limit = requests_per_window;
   client->window_ms = window_ms;
   client->request_count = 0;
@@ -336,7 +337,7 @@ fl_ratelimit_client_t* fl_ratelimit_get_client(fl_ratelimit_t *limiter, const ch
       if (client) {
         memcpy(client, &limiter->clients[i], sizeof(fl_ratelimit_client_t));
         client->identifier = (char*)malloc(strlen(limiter->clients[i].identifier) + 1);
-        strcpy(client->identifier, limiter->clients[i].identifier);
+        SAFE_STRCPY(client->identifier, limiter->clients[i].identifier);
       }
       pthread_mutex_unlock(&limiter->mutex);
       return client;

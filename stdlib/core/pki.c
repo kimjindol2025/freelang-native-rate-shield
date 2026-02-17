@@ -3,6 +3,7 @@
  */
 
 #include "pki.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -27,9 +28,9 @@ fl_pki_key_pair_t* fl_pki_generate_key_pair(fl_pki_key_type_t key_type) {
   key_pair->public_key = (char*)malloc(512);
   key_pair->private_key = (char*)malloc(1024);
 
-  sprintf(key_pair->public_key, "-----BEGIN PUBLIC KEY-----\nPK_%s_%ld\n-----END PUBLIC KEY-----", 
+  SAFE_SPRINTF(key_pair->public_key, "-----BEGIN PUBLIC KEY-----\nPK_%s_%ld\n-----END PUBLIC KEY-----", 
           key_type_str, key_pair->created_at);
-  sprintf(key_pair->private_key, "-----BEGIN PRIVATE KEY-----\nSK_%s_%ld\n-----END PRIVATE KEY-----", 
+  SAFE_SPRINTF(key_pair->private_key, "-----BEGIN PRIVATE KEY-----\nSK_%s_%ld\n-----END PRIVATE KEY-----", 
           key_type_str, key_pair->created_at);
 
   pthread_mutex_lock(&pki_mutex);
@@ -56,7 +57,7 @@ char* fl_pki_sign_message(fl_pki_key_pair_t *key_pair, const char *message, size
   char *signature = (char*)malloc(512);
   if (!signature) return NULL;
 
-  sprintf(signature, "SIG_%s_%zu_%ld", key_pair->private_key, message_len, time(NULL));
+  snprintf(signature, sizeof(signature), "SIG_%s_%zu_%ld", key_pair->private_key, message_len, time(NULL));
 
   pthread_mutex_lock(&pki_mutex);
   global_stats.signatures_created++;
@@ -92,19 +93,19 @@ fl_pki_certificate_t* fl_pki_issue_certificate(const char *subject, fl_pki_key_p
   if (!cert) return NULL;
 
   cert->subject = (char*)malloc(strlen(subject) + 1);
-  strcpy(cert->subject, subject);
+  SAFE_STRCPY(cert->subject, subject);
 
   cert->issuer = (char*)malloc(256);
-  strcpy(cert->issuer, "FreeLang CA v1");
+  strncpy(cert->issuer, "FreeLang CA v1", sizeof(cert->issuer)-1); cert->issuer[sizeof(cert->issuer)-1] = '\0';
 
   cert->public_key = (char*)malloc(strlen(key_pair->public_key) + 1);
-  strcpy(cert->public_key, key_pair->public_key);
+  SAFE_STRCPY(cert->public_key, key_pair->public_key);
 
   cert->not_before = time(NULL);
   cert->not_after = cert->not_before + (validity_days * 86400);
 
   cert->serial_number = (char*)malloc(128);
-  sprintf(cert->serial_number, "SN_%ld_%s", cert->not_before, subject);
+  SAFE_SPRINTF(cert->serial_number, "SN_%ld_%s", cert->not_before, subject);
 
   cert->is_valid = 1;
 
@@ -168,7 +169,7 @@ char* fl_pki_export_public_key_pem(fl_pki_key_pair_t *key_pair) {
   char *pem = (char*)malloc(strlen(key_pair->public_key) + 1);
   if (!pem) return NULL;
 
-  strcpy(pem, key_pair->public_key);
+  SAFE_STRCPY(pem, key_pair->public_key);
   fprintf(stderr, "[pki] Public key exported (PEM)\n");
   return pem;
 }
@@ -179,7 +180,7 @@ char* fl_pki_export_private_key_pem(fl_pki_key_pair_t *key_pair) {
   char *pem = (char*)malloc(strlen(key_pair->private_key) + 1);
   if (!pem) return NULL;
 
-  strcpy(pem, key_pair->private_key);
+  SAFE_STRCPY(pem, key_pair->private_key);
   fprintf(stderr, "[pki] Private key exported (PEM)\n");
   return pem;
 }
@@ -193,8 +194,8 @@ fl_pki_key_pair_t* fl_pki_import_key_pair_pem(const char *public_pem, const char
   key_pair->public_key = (char*)malloc(strlen(public_pem) + 1);
   key_pair->private_key = (char*)malloc(strlen(private_pem) + 1);
 
-  strcpy(key_pair->public_key, public_pem);
-  strcpy(key_pair->private_key, private_pem);
+  SAFE_STRCPY(key_pair->public_key, public_pem);
+  SAFE_STRCPY(key_pair->private_key, private_pem);
   key_pair->key_type = FL_PKI_RSA_2048;
   key_pair->created_at = time(NULL);
 

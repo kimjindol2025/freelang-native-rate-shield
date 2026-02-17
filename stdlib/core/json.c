@@ -3,6 +3,7 @@
  */
 
 #include "json.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -43,7 +44,7 @@ static void set_error(fl_json_parser_t *parser, const char *msg) {
     char buffer[256];
     snprintf(buffer, sizeof(buffer), "%s at line %d, col %d", msg, parser->line, parser->column);
     parser->error_msg = (char*)malloc(strlen(buffer) + 1);
-    if (parser->error_msg) strcpy(parser->error_msg, buffer);
+    if (parser->error_msg) SAFE_STRCPY(parser->error_msg, buffer);
   }
 }
 
@@ -131,7 +132,7 @@ static fl_json_value_t* parse_string(fl_json_parser_t *parser) {
   fl_json_value_t *result = (fl_json_value_t*)malloc(sizeof(fl_json_value_t));
   result->type = FL_JSON_STRING;
   result->data.string_val = (char*)malloc(strlen(buffer) + 1);
-  strcpy(result->data.string_val, buffer);
+  SAFE_STRCPY(result->data.string_val, buffer);
 
   return result;
 }
@@ -345,7 +346,7 @@ fl_json_value_t* fl_json_string(const char *s) {
   fl_json_value_t *value = (fl_json_value_t*)malloc(sizeof(fl_json_value_t));
   value->type = FL_JSON_STRING;
   value->data.string_val = (char*)malloc(strlen(s) + 1);
-  strcpy(value->data.string_val, s);
+  SAFE_STRCPY(value->data.string_val, s);
   return value;
 }
 
@@ -415,7 +416,7 @@ int fl_json_object_set(fl_json_value_t *object, const char *key, fl_json_value_t
   }
 
   object->data.object.pairs[object->data.object.count].key = (char*)malloc(strlen(key) + 1);
-  strcpy((char*)object->data.object.pairs[object->data.object.count].key, key);
+  SAFE_STRCPY((char*)object->data.object.pairs[object->data.object.count].key, key);
   object->data.object.pairs[object->data.object.count].value = value;
   object->data.object.count++;
 

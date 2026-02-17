@@ -5,6 +5,7 @@
  */
 
 #include "websocket.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -38,7 +39,7 @@ int fl_ws_config_set_server(fl_ws_config_t *config, const char *address,
 
   config->server_address = (char *)malloc(strlen(address) + 1);
   if (!config->server_address) return -1;
-  strcpy(config->server_address, address);
+  SAFE_STRCPY(config->server_address, address);
 
   config->server_port = port;
 
@@ -47,7 +48,7 @@ int fl_ws_config_set_server(fl_ws_config_t *config, const char *address,
     free(config->server_address);
     return -1;
   }
-  strcpy(config->server_path, path);
+  SAFE_STRCPY(config->server_path, path);
 
   return 0;
 }
@@ -57,7 +58,7 @@ int fl_ws_config_set_origin(fl_ws_config_t *config, const char *origin) {
 
   config->origin = (char *)malloc(strlen(origin) + 1);
   if (!config->origin) return -1;
-  strcpy(config->origin, origin);
+  SAFE_STRCPY(config->origin, origin);
 
   return 0;
 }
@@ -71,7 +72,7 @@ int fl_ws_config_set_subprotocols(fl_ws_config_t *config, const char **protocols
   for (int i = 0; i < count; i++) {
     config->subprotocols[i] = (char *)malloc(strlen(protocols[i]) + 1);
     if (!config->subprotocols[i]) return -1;
-    strcpy(config->subprotocols[i], protocols[i]);
+    SAFE_STRCPY(config->subprotocols[i], protocols[i]);
   }
 
   config->subprotocol_count = count;

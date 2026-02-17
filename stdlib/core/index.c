@@ -1,4 +1,5 @@
 #include "index.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -14,7 +15,7 @@ struct fl_index_t {
 fl_index_t* fl_index_create(const char *name, fl_index_type_t type) {
   fl_index_t *idx = (fl_index_t*)malloc(sizeof(fl_index_t));
   idx->name = (char*)malloc(strlen(name) + 1);
-  strcpy(idx->name, name);
+  SAFE_STRCPY(idx->name, name);
   idx->type = type;
   idx->keys = NULL;
   idx->row_ids = NULL;
@@ -36,7 +37,7 @@ int fl_index_insert(fl_index_t *index, const char *key, uint64_t row_id) {
   char **nk = (char**)realloc(index->keys, (index->entry_count + 1) * sizeof(char*));
   uint64_t *nr = (uint64_t*)realloc(index->row_ids, (index->entry_count + 1) * sizeof(uint64_t));
   nk[index->entry_count] = (char*)malloc(strlen(key) + 1);
-  strcpy(nk[index->entry_count], key);
+  SAFE_STRCPY(nk[index->entry_count], key);
   nr[index->entry_count] = row_id;
   index->keys = nk;
   index->row_ids = nr;

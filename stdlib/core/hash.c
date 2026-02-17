@@ -3,6 +3,7 @@
  */
 
 #include "hash.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -248,7 +249,7 @@ int fl_hash_table_set(fl_hash_table_t *table, const char *key, void *value) {
   char *key_copy = (char*)malloc(strlen(key) + 1);
   if (!key_copy) return -1;
 
-  strcpy(key_copy, key);
+  if(snprintf(key_copy, sizeof(key_copy), "%s", key) < 0) return -1;;
 
   table->entries[empty_index].key = key_copy;
   table->entries[empty_index].value = value;

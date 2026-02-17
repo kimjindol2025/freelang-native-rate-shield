@@ -4,6 +4,7 @@
  */
 
 #include "dns.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -40,7 +41,7 @@ fl_dns_config_t* fl_dns_config_create(void) {
   if (!config) return NULL;
 
   config->nameserver_ip = (char*)malloc(16);
-  strcpy(config->nameserver_ip, "8.8.8.8");  /* Default: Google DNS */
+  strncpy(config->nameserver_ip, "8.8.8.8", sizeof(config->nameserver_ip)-1); config->nameserver_ip[sizeof(config->nameserver_ip)-1] = '\0';  /* Default: Google DNS */
   config->nameserver_port = 53;
   config->timeout_ms = 5000;
   config->use_cache = 1;
@@ -67,7 +68,7 @@ int fl_dns_config_set_nameserver(fl_dns_config_t *config, const char *ip,
 
   free(config->nameserver_ip);
   config->nameserver_ip = (char*)malloc(strlen(ip) + 1);
-  strcpy(config->nameserver_ip, ip);
+  SAFE_STRCPY(config->nameserver_ip, ip);
   config->nameserver_port = port;
 
   fprintf(stderr, "[dns] Nameserver set: %s:%d\n", ip, port);
@@ -147,7 +148,7 @@ fl_dns_response_t* fl_dns_resolve_config(const char *domain, fl_dns_type_t type,
   /* Convert addresses to records */
   for (int i = 0; i < addr_count; i++) {
     resp->records[i].name = (char*)malloc(strlen(domain) + 1);
-    strcpy(resp->records[i].name, domain);
+    SAFE_STRCPY(resp->records[i].name, domain);
     resp->records[i].type = FL_DNS_A;
     resp->records[i].class = FL_DNS_CLASS_IN;
     resp->records[i].ttl = 300;  /* Default 5 minutes */
@@ -156,7 +157,7 @@ fl_dns_response_t* fl_dns_resolve_config(const char *domain, fl_dns_type_t type,
     memcpy(&addr.s_addr, host_info->h_addr_list[i], host_info->h_length);
 
     resp->records[i].data = (uint8_t*)malloc(16);
-    strcpy((char*)resp->records[i].data, inet_ntoa(addr));
+    SAFE_STRCPY((char*)resp->records[i].data, inet_ntoa(addr));
     resp->records[i].data_size = strlen((char*)resp->records[i].data);
 
     resp->record_count++;
@@ -272,10 +273,10 @@ fl_dns_response_t* fl_dns_reverse_lookup(const char *ip_address) {
   resp->status = 0;
   resp->records = (fl_dns_record_t*)malloc(sizeof(fl_dns_record_t));
   resp->records[0].name = (char*)malloc(strlen(ip_address) + 1);
-  strcpy(resp->records[0].name, ip_address);
+  SAFE_STRCPY(resp->records[0].name, ip_address);
   resp->records[0].type = FL_DNS_PTR;
   resp->records[0].data = (uint8_t*)malloc(strlen(host_info->h_name) + 1);
-  strcpy((char*)resp->records[0].data, host_info->h_name);
+  SAFE_STRCPY((char*)resp->records[0].data, host_info->h_name);
   resp->records[0].data_size = strlen(host_info->h_name);
   resp->record_count = 1;
 

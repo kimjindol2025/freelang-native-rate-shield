@@ -4,6 +4,7 @@
  */
 
 #include "mqtt.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -48,7 +49,7 @@ fl_mqtt_client_t* fl_mqtt_client_create(const char *client_id, int clean_session
   if (!client) return NULL;
 
   client->client_id = (char*)malloc(strlen(client_id) + 1);
-  strcpy(client->client_id, client_id);
+  SAFE_STRCPY(client->client_id, client_id);
   client->host = NULL;
   client->port = 0;
   client->username = NULL;
@@ -99,16 +100,16 @@ int fl_mqtt_client_connect(fl_mqtt_client_t *client, const char *host, uint16_t 
   if (!client || !host) return -1;
 
   client->host = (char*)malloc(strlen(host) + 1);
-  strcpy(client->host, host);
+  SAFE_STRCPY(client->host, host);
   client->port = port;
   
   if (username) {
     client->username = (char*)malloc(strlen(username) + 1);
-    strcpy(client->username, username);
+    SAFE_STRCPY(client->username, username);
   }
   if (password) {
     client->password = (char*)malloc(strlen(password) + 1);
-    strcpy(client->password, password);
+    SAFE_STRCPY(client->password, password);
   }
 
   client->is_connected = 1;
@@ -184,7 +185,7 @@ int fl_mqtt_client_subscribe(fl_mqtt_client_t *client, const char *topic, fl_mqt
   client->topic_qos = new_qos;
 
   client->subscribed_topics[client->subscription_count] = (char*)malloc(strlen(topic) + 1);
-  strcpy(client->subscribed_topics[client->subscription_count], topic);
+  SAFE_STRCPY(client->subscribed_topics[client->subscription_count], topic);
   client->topic_qos[client->subscription_count] = qos;
 
   client->subscription_count++;

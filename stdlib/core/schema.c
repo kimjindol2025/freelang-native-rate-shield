@@ -4,6 +4,7 @@
  */
 
 #include "schema.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -67,7 +68,7 @@ int fl_schema_create_table(fl_schema_t *schema, const char *table_name,
 
   schema->table_names = new_tables;
   schema->table_names[schema->table_count] = (char*)malloc(strlen(table_name) + 1);
-  strcpy(schema->table_names[schema->table_count], table_name);
+  SAFE_STRCPY(schema->table_names[schema->table_count], table_name);
   schema->table_count++;
 
   schema->stats.tables_created++;
@@ -126,11 +127,11 @@ fl_migration_t* fl_migration_create(const char *name, const char *description) {
   if (!migration) return NULL;
 
   migration->name = (char*)malloc(strlen(name) + 1);
-  strcpy(migration->name, name);
+  SAFE_STRCPY(migration->name, name);
   
   if (description) {
     migration->description = (char*)malloc(strlen(description) + 1);
-    strcpy(migration->description, description);
+    SAFE_STRCPY(migration->description, description);
   } else {
     migration->description = NULL;
   }

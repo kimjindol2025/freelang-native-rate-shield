@@ -4,6 +4,7 @@
  */
 
 #include "grpc.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -42,7 +43,7 @@ fl_grpc_client_t* fl_grpc_client_create(const char *target, int timeout_ms) {
   if (!client) return NULL;
 
   client->target = (const char*)malloc(strlen(target) + 1);
-  strcpy((char*)client->target, target);
+  SAFE_STRCPY((char*)client->target, target);
   client->timeout_ms = timeout_ms;
 
   fprintf(stderr, "[grpc] Client created: %s, timeout=%dms\n", target, timeout_ms);
@@ -102,8 +103,8 @@ fl_grpc_call_t* fl_grpc_call_client_streaming(fl_grpc_client_t *client,
 
   call->service = (char*)malloc(strlen(service) + 1);
   call->method = (char*)malloc(strlen(method) + 1);
-  strcpy(call->service, service);
-  strcpy(call->method, method);
+  SAFE_STRCPY(call->service, service);
+  SAFE_STRCPY(call->method, method);
   call->call_type = FL_GRPC_CLIENT_STREAMING;
   call->status = FL_GRPC_OK;
   call->is_active = 1;
@@ -194,7 +195,7 @@ fl_grpc_server_t* fl_grpc_server_create(const char *host, uint16_t port) {
   if (!server) return NULL;
 
   server->host = (const char*)malloc(strlen(host) + 1);
-  strcpy((char*)server->host, host);
+  SAFE_STRCPY((char*)server->host, host);
   server->port = port;
   server->running = 0;
   server->num_services = 0;
@@ -315,8 +316,8 @@ int fl_grpc_call_set_metadata(fl_grpc_call_t *call, const fl_grpc_metadata_t *me
   for (int i = 0; i < metadata_count; i++) {
     call->metadata[i].key = (char*)malloc(strlen(metadata[i].key) + 1);
     call->metadata[i].value = (char*)malloc(strlen(metadata[i].value) + 1);
-    strcpy(call->metadata[i].key, metadata[i].key);
-    strcpy(call->metadata[i].value, metadata[i].value);
+    SAFE_STRCPY(call->metadata[i].key, metadata[i].key);
+    SAFE_STRCPY(call->metadata[i].value, metadata[i].value);
   }
 
   call->metadata_count = metadata_count;

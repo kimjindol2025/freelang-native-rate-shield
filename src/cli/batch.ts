@@ -1,11 +1,15 @@
 /**
- * Phase 9.1: Batch Mode CLI
+ * Phase 9.1 → Phase 18: Batch Mode CLI + VM Execution
  *
  * 배치 모드: 파일 입력, 결과 저장
+ * + Phase 18: IR 생성 및 VM 실행
  */
 
 import { interactiveMode } from './interactive';
 import { dashboard } from '../dashboard/dashboard';
+import { IRGenerator } from '../codegen/ir-generator';
+import { VM } from '../vm';
+import { Parser } from '../parser/parser';
 
 export interface BatchResult {
   input: string;
@@ -14,6 +18,9 @@ export interface BatchResult {
   action: 'approve' | 'reject' | 'modify';
   success: boolean;
   timestamp: Date;
+  // Phase 18: VM execution results
+  executionResult?: number | null;
+  executionTime?: number; // ms
 }
 
 export class BatchMode {
@@ -52,30 +59,45 @@ export class BatchMode {
   }
 
   /**
-   * 개별 입력 처리
+   * Phase 18: VM 기반 코드 실행 + 분석
    */
   private processInput(input: string): BatchResult {
     try {
-      // 실제로는 AutoHeaderEngine을 사용하여 제안 생성
-      // 여기서는 목업
-      const fnName = 'process';
-      const confidence = 0.75;
-      const action = 'approve';
+      const fnName = 'execute';
+      let executionResult: number | null = null;
+      let executionTime = 0;
+      let success = false;
 
-      // 피드백 기록
-      const success = interactiveMode.recordFeedback(
-        input,
-        fnName,
-        action as 'approve' | 'reject' | 'modify'
-      );
+      // Phase 18 Day 1: 시뮬레이션된 AST 생성
+      // 실제로는 Parser를 사용하여 AST 생성
+      const ast = this.simpleParseArithmetic(input);
+
+      if (ast) {
+        // IR 생성
+        const gen = new IRGenerator();
+        const ir = gen.generateIR(ast);
+
+        // VM 실행
+        const vm = new VM();
+        const start = performance.now();
+        const result = vm.run(ir);
+        executionTime = performance.now() - start;
+
+        if (result.ok) {
+          executionResult = result.value as number;
+          success = true;
+        }
+      }
 
       return {
         input,
         fnName,
-        confidence,
-        action: action as 'approve' | 'reject' | 'modify',
+        confidence: success ? 0.95 : 0.0,
+        action: success ? 'approve' : 'reject',
         success,
         timestamp: new Date(),
+        executionResult,
+        executionTime,
       };
     } catch (error) {
       return {
@@ -87,6 +109,36 @@ export class BatchMode {
         timestamp: new Date(),
       };
     }
+  }
+
+  /**
+   * Phase 18 Day 1: 간단한 산술식 파싱
+   * 실제로는 Parser를 사용해야 함
+   */
+  private simpleParseArithmetic(input: string): any | null {
+    input = input.trim();
+
+    // 숫자 + 연산자 + 숫자 형태 감지
+    const match = input.match(/^(\d+)\s*([\+\-\*\/\%])\s*(\d+)$/);
+    if (match) {
+      const [_, left, op, right] = match;
+      return {
+        type: 'BinaryOp',
+        operator: op,
+        left: { type: 'NumberLiteral', value: parseInt(left) },
+        right: { type: 'NumberLiteral', value: parseInt(right) }
+      };
+    }
+
+    // 단일 숫자
+    if (/^\d+$/.test(input)) {
+      return {
+        type: 'NumberLiteral',
+        value: parseInt(input)
+      };
+    }
+
+    return null;
   }
 
   /**

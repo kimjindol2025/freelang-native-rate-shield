@@ -3,6 +3,7 @@
  */
 
 #include "yaml.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -26,7 +27,7 @@ static void set_error(fl_yaml_parser_t *parser, const char *msg) {
     char buffer[256];
     snprintf(buffer, sizeof(buffer), "%s at line %d", msg, parser->line);
     parser->error_msg = (char*)malloc(strlen(buffer) + 1);
-    if (parser->error_msg) strcpy(parser->error_msg, buffer);
+    if (parser->error_msg) SAFE_STRCPY(parser->error_msg, buffer);
   }
 }
 
@@ -290,7 +291,7 @@ fl_yaml_node_t* fl_yaml_string(const char *s) {
   fl_yaml_node_t *node = (fl_yaml_node_t*)malloc(sizeof(fl_yaml_node_t));
   node->type = FL_YAML_STRING;
   node->data.string_val = (char*)malloc(strlen(s) + 1);
-  strcpy(node->data.string_val, s);
+  SAFE_STRCPY(node->data.string_val, s);
   return node;
 }
 

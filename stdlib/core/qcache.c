@@ -1,4 +1,5 @@
 #include "qcache.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -34,7 +35,7 @@ int fl_qcache_put(fl_qcache_t *cache, const char *query, void *result) {
   char **q = (char**)realloc(cache->queries, (cache->count + 1) * sizeof(char*));
   void **r = (void**)realloc(cache->results, (cache->count + 1) * sizeof(void*));
   q[cache->count] = (char*)malloc(strlen(query) + 1);
-  strcpy(q[cache->count], query);
+  SAFE_STRCPY(q[cache->count], query);
   r[cache->count] = result;
   cache->queries = q;
   cache->results = r;

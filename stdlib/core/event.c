@@ -3,6 +3,7 @@
  */
 
 #include "event.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

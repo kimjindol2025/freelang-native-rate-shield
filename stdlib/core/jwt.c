@@ -3,6 +3,7 @@
  */
 
 #include "jwt.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -35,7 +36,7 @@ fl_jwt_t* fl_jwt_create(fl_jwt_algorithm_t algorithm, const char *secret) {
 
   jwt->algorithm = algorithm;
   jwt->secret = (char*)malloc(strlen(secret) + 1);
-  strcpy(jwt->secret, secret);
+  SAFE_STRCPY(jwt->secret, secret);
 
   fprintf(stderr, "[jwt] Token handler created: algorithm=%d\n", algorithm);
   return jwt;
@@ -84,7 +85,7 @@ int fl_jwt_claims_set_subject(fl_jwt_claims_t *claims, const char *subject) {
   if (!claims || !subject) return -1;
   free(claims->subject);
   claims->subject = (char*)malloc(strlen(subject) + 1);
-  strcpy(claims->subject, subject);
+  SAFE_STRCPY(claims->subject, subject);
   return 0;
 }
 
@@ -92,7 +93,7 @@ int fl_jwt_claims_set_audience(fl_jwt_claims_t *claims, const char *audience) {
   if (!claims || !audience) return -1;
   free(claims->audience);
   claims->audience = (char*)malloc(strlen(audience) + 1);
-  strcpy(claims->audience, audience);
+  SAFE_STRCPY(claims->audience, audience);
   return 0;
 }
 
@@ -100,7 +101,7 @@ int fl_jwt_claims_set_issuer(fl_jwt_claims_t *claims, const char *issuer) {
   if (!claims || !issuer) return -1;
   free(claims->issuer);
   claims->issuer = (char*)malloc(strlen(issuer) + 1);
-  strcpy(claims->issuer, issuer);
+  SAFE_STRCPY(claims->issuer, issuer);
   return 0;
 }
 
@@ -120,8 +121,8 @@ int fl_jwt_claims_set_custom(fl_jwt_claims_t *claims, const char *key, const cha
 
   nk[claims->custom_count] = (char*)malloc(strlen(key) + 1);
   nv[claims->custom_count] = (char*)malloc(strlen(value) + 1);
-  strcpy(nk[claims->custom_count], key);
-  strcpy(nv[claims->custom_count], value);
+  SAFE_STRCPY(nk[claims->custom_count], key);
+  SAFE_STRCPY(nv[claims->custom_count], value);
 
   claims->custom_keys = nk;
   claims->custom_values = nv;
@@ -134,7 +135,7 @@ char* fl_jwt_encode(fl_jwt_t *jwt, fl_jwt_claims_t *claims) {
   if (!jwt || !claims) return NULL;
 
   char *token = (char*)malloc(500);
-  sprintf(token, "eyJ%s.eyJ%s.sig%s", jwt->secret ? "1" : "0", claims->subject ? "1" : "0", claims->issuer ? "1" : "0");
+  snprintf(token, sizeof(token), "eyJ%s.eyJ%s.sig%s", jwt->secret ? "1" : "0", claims->subject ? "1" : "0", claims->issuer ? "1" : "0");
 
   pthread_mutex_lock(&jwt_mutex);
   global_stats.tokens_issued++;

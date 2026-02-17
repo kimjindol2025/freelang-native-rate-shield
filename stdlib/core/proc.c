@@ -3,6 +3,7 @@
  */
 
 #include "proc.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -45,7 +46,7 @@ int fl_proc_add_arg(fl_spawn_options_t *opts, const char *arg) {
   opts->args[opts->arg_count] = (char*)malloc(strlen(arg) + 1);
   if (!opts->args[opts->arg_count]) return -1;
 
-  strcpy(opts->args[opts->arg_count], arg);
+  SAFE_STRCPY(opts->args[opts->arg_count], arg);
   opts->arg_count++;
 
   return 0;

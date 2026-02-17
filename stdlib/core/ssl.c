@@ -4,6 +4,7 @@
  */
 
 #include "ssl.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -49,7 +50,7 @@ int fl_tls_config_set_hostname(fl_tls_config_t *config, const char *hostname) {
   if (!config || !hostname) return -1;
 
   config->hostname = (char*)malloc(strlen(hostname) + 1);
-  strcpy(config->hostname, hostname);
+  SAFE_STRCPY(config->hostname, hostname);
 
   fprintf(stderr, "[tls] Hostname set: %s\n", hostname);
   return 0;
@@ -60,10 +61,10 @@ int fl_tls_config_set_cert_key(fl_tls_config_t *config, const char *cert_file,
   if (!config || !cert_file || !key_file) return -1;
 
   config->cert_file = (char*)malloc(strlen(cert_file) + 1);
-  strcpy(config->cert_file, cert_file);
+  SAFE_STRCPY(config->cert_file, cert_file);
 
   config->key_file = (char*)malloc(strlen(key_file) + 1);
-  strcpy(config->key_file, key_file);
+  SAFE_STRCPY(config->key_file, key_file);
 
   fprintf(stderr, "[tls] Certificate and key set: %s, %s\n", cert_file, key_file);
   return 0;
@@ -74,12 +75,12 @@ int fl_tls_config_set_ca(fl_tls_config_t *config, const char *ca_file, const cha
 
   if (ca_file) {
     config->ca_file = (char*)malloc(strlen(ca_file) + 1);
-    strcpy(config->ca_file, ca_file);
+    SAFE_STRCPY(config->ca_file, ca_file);
   }
 
   if (ca_path) {
     config->ca_path = (char*)malloc(strlen(ca_path) + 1);
-    strcpy(config->ca_path, ca_path);
+    SAFE_STRCPY(config->ca_path, ca_path);
   }
 
   fprintf(stderr, "[tls] CA certificates set\n");
@@ -297,10 +298,10 @@ fl_tls_connection_info_t* fl_tls_get_connection_info(fl_tls_socket_t *sock) {
   if (!info) return NULL;
 
   info->protocol_name = (char*)malloc(16);
-  strcpy(info->protocol_name, "TLSv1.3");
+  strncpy(info->protocol_name, "TLSv1.3", sizeof(info->protocol_name)-1); info->protocol_name[sizeof(info->protocol_name)-1] = '\0';
 
   info->cipher_name = (char*)malloc(32);
-  strcpy(info->cipher_name, "TLS_AES_256_GCM_SHA384");
+  strncpy(info->cipher_name, "TLS_AES_256_GCM_SHA384", sizeof(info->cipher_name)-1); info->cipher_name[sizeof(info->cipher_name)-1] = '\0';
 
   info->key_size = 256;
   info->handshake_time_ms = sock->handshake_time_ms;
@@ -316,13 +317,13 @@ fl_tls_cert_info_t* fl_tls_get_peer_cert(fl_tls_socket_t *sock) {
   if (!cert) return NULL;
 
   cert->subject = (char*)malloc(64);
-  strcpy(cert->subject, "CN=example.com");
+  strncpy(cert->subject, "CN=example.com", sizeof(cert->subject)-1); cert->subject[sizeof(cert->subject)-1] = '\0';
 
   cert->issuer = (char*)malloc(64);
-  strcpy(cert->issuer, "CN=Example CA");
+  strncpy(cert->issuer, "CN=Example CA", sizeof(cert->issuer)-1); cert->issuer[sizeof(cert->issuer)-1] = '\0';
 
   cert->fingerprint = (char*)malloc(65);
-  strcpy(cert->fingerprint, "0123456789abcdef0123456789abcdef");
+  strncpy(cert->fingerprint, "0123456789abcdef0123456789abcdef", sizeof(cert->fingerprint)-1); cert->fingerprint[sizeof(cert->fingerprint)-1] = '\0';
 
   cert->is_self_signed = 0;
   cert->key_size = 2048;

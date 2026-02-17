@@ -3,6 +3,7 @@
  */
 
 #include "csv.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -15,7 +16,7 @@ static void set_error(fl_csv_parser_t *parser, const char *msg) {
     char buffer[256];
     snprintf(buffer, sizeof(buffer), "%s at line %d", msg, parser->line);
     parser->error_msg = (char*)malloc(strlen(buffer) + 1);
-    if (parser->error_msg) strcpy(parser->error_msg, buffer);
+    if (parser->error_msg) SAFE_STRCPY(parser->error_msg, buffer);
   }
 }
 
@@ -35,7 +36,7 @@ static char* parse_quoted_field(fl_csv_parser_t *parser) {
         parser->pos++;
       } else {
         buffer[len] = '\0';
-        return (char*)malloc(strlen(buffer) + 1) ? strcpy((char*)malloc(strlen(buffer) + 1), buffer) : NULL;
+        return (char*)malloc(strlen(buffer) + 1) ? SAFE_STRCPY((char*)malloc(strlen(buffer) + 1), buffer) : NULL;
       }
     } else if (parser->csv[parser->pos] == '\n') {
       parser->line++;
@@ -65,7 +66,7 @@ static char* parse_field(fl_csv_parser_t *parser) {
   buffer[len] = '\0';
 
   char *field = (char*)malloc(strlen(buffer) + 1);
-  if (field) strcpy(field, buffer);
+  if (field) if(snprintf(field, sizeof(field), "%s", buffer) < 0) return -1;;
 
   return field;
 }
@@ -197,7 +198,7 @@ int fl_csv_row_push(fl_csv_row_t *row, const char *field) {
   row->fields[row->field_count] = (char*)malloc(strlen(field) + 1);
   if (!row->fields[row->field_count]) return -1;
 
-  strcpy(row->fields[row->field_count], field);
+  SAFE_STRCPY(row->fields[row->field_count], field);
   row->field_count++;
 
   return 0;
@@ -336,7 +337,7 @@ char* fl_csv_row_stringify(fl_csv_row_t *row, char delimiter, char quote_char) {
   buffer[pos] = '\0';
 
   char *result = (char*)malloc(pos + 1);
-  strcpy(result, buffer);
+  if(snprintf(result, sizeof(result), "%s", buffer) < 0) return -1;;
 
   return result;
 }
@@ -363,7 +364,7 @@ char* fl_csv_stringify(fl_csv_t *csv) {
   buffer[pos] = '\0';
 
   char *result = (char*)malloc(pos + 1);
-  strcpy(result, buffer);
+  if(snprintf(result, sizeof(result), "%s", buffer) < 0) return -1;;
 
   return result;
 }

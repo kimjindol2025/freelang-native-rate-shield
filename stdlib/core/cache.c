@@ -3,6 +3,7 @@
  */
 
 #include "cache.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -209,7 +210,7 @@ int fl_cache_set_ttl(fl_cache_t *cache, const char *key, void *value, size_t val
     return -1;
   }
 
-  strcpy(key_copy, key);
+  if(snprintf(key_copy, sizeof(key_copy), "%s", key) < 0) return -1;;
 
   new_entry->key = key_copy;
   new_entry->value = new_value;

@@ -3,6 +3,7 @@
  */
 
 #include "oauth2.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -28,15 +29,15 @@ fl_oauth2_t* fl_oauth2_client_create(const char *client_id, const char *client_s
 
   client->client_id = (char*)malloc(strlen(client_id) + 1);
   client->client_secret = (char*)malloc(strlen(client_secret) + 1);
-  strcpy(client->client_id, client_id);
-  strcpy(client->client_secret, client_secret);
+  SAFE_STRCPY(client->client_id, client_id);
+  SAFE_STRCPY(client->client_secret, client_secret);
 
   client->authorization_endpoint = (char*)malloc(256);
   client->token_endpoint = (char*)malloc(256);
   client->userinfo_endpoint = (char*)malloc(256);
-  strcpy(client->authorization_endpoint, "https://provider.com/oauth/authorize");
-  strcpy(client->token_endpoint, "https://provider.com/oauth/token");
-  strcpy(client->userinfo_endpoint, "https://provider.com/oauth/userinfo");
+  strncpy(client->authorization_endpoint, "https://provider.com/oauth/authorize", sizeof(client->authorization_endpoint)-1); client->authorization_endpoint[sizeof(client->authorization_endpoint)-1] = '\0';
+  strncpy(client->token_endpoint, "https://provider.com/oauth/token", sizeof(client->token_endpoint)-1); client->token_endpoint[sizeof(client->token_endpoint)-1] = '\0';
+  strncpy(client->userinfo_endpoint, "https://provider.com/oauth/userinfo", sizeof(client->userinfo_endpoint)-1); client->userinfo_endpoint[sizeof(client->userinfo_endpoint)-1] = '\0';
 
   fprintf(stderr, "[oauth2] Client created: %s\n", client_id);
   return client;
@@ -61,18 +62,18 @@ char* fl_oauth2_get_authorization_url(fl_oauth2_t *client, const char *redirect_
   char *url = (char*)malloc(1024);
   if (!url) return NULL;
 
-  strcpy(url, client->authorization_endpoint);
-  strcat(url, "?client_id=");
-  strcat(url, client->client_id);
-  strcat(url, "&redirect_uri=");
-  strcat(url, redirect_uri);
-  strcat(url, "&response_type=code");
+  SAFE_STRCPY(url, client->authorization_endpoint);
+  strncat(url, "?client_id=", sizeof(url)-strlen(url)-1);
+  SAFE_STRCAT(url, client->client_id);
+  strncat(url, "&redirect_uri=", sizeof(url)-strlen(url)-1);
+  SAFE_STRCAT(url, redirect_uri);
+  strncat(url, "&response_type=code", sizeof(url)-strlen(url)-1);
 
   if (scope_count > 0 && scopes) {
-    strcat(url, "&scope=");
+    strncat(url, "&scope=", sizeof(url)-strlen(url)-1);
     for (int i = 0; i < scope_count; i++) {
-      if (i > 0) strcat(url, "%20");
-      strcat(url, scopes[i]);
+      if (i > 0) strncat(url, "%20", sizeof(url)-strlen(url)-1);
+      SAFE_STRCAT(url, scopes[i]);
     }
   }
 
@@ -93,11 +94,11 @@ int fl_oauth2_exchange_code(fl_oauth2_t *client, const char *code, const char *r
   token->access_token = (char*)malloc(128);
   token->refresh_token = (char*)malloc(128);
   token->token_type = (char*)malloc(32);
-  strcpy(token->access_token, "at_");
-  strcat(token->access_token, code);
-  strcpy(token->refresh_token, "rt_");
-  strcat(token->refresh_token, code);
-  strcpy(token->token_type, "Bearer");
+  strncpy(token->access_token, "at_", sizeof(token->access_token)-1); token->access_token[sizeof(token->access_token)-1] = '\0';
+  SAFE_STRCAT(token->access_token, code);
+  strncpy(token->refresh_token, "rt_", sizeof(token->refresh_token)-1); token->refresh_token[sizeof(token->refresh_token)-1] = '\0';
+  SAFE_STRCAT(token->refresh_token, code);
+  strncpy(token->token_type, "Bearer", sizeof(token->token_type)-1); token->token_type[sizeof(token->token_type)-1] = '\0';
 
   token->expires_at = time(NULL) + 3600;
   token->scopes = NULL;
@@ -120,12 +121,12 @@ int fl_oauth2_refresh_token(fl_oauth2_t *client, const char *refresh_token, fl_o
   if (!token) return -1;
 
   token->access_token = (char*)malloc(128);
-  strcpy(token->access_token, "at_new_");
-  strcat(token->access_token, refresh_token);
+  strncpy(token->access_token, "at_new_", sizeof(token->access_token)-1); token->access_token[sizeof(token->access_token)-1] = '\0';
+  SAFE_STRCAT(token->access_token, refresh_token);
   token->refresh_token = (char*)malloc(strlen(refresh_token) + 1);
-  strcpy(token->refresh_token, refresh_token);
+  SAFE_STRCPY(token->refresh_token, refresh_token);
   token->token_type = (char*)malloc(32);
-  strcpy(token->token_type, "Bearer");
+  strncpy(token->token_type, "Bearer", sizeof(token->token_type)-1); token->token_type[sizeof(token->token_type)-1] = '\0';
   token->expires_at = time(NULL) + 3600;
   token->scopes = NULL;
   token->scope_count = 0;
@@ -171,16 +172,16 @@ int fl_oauth2_client_credentials_flow(fl_oauth2_t *client, const char **scopes, 
   token->access_token = (char*)malloc(128);
   token->refresh_token = NULL;
   token->token_type = (char*)malloc(32);
-  strcpy(token->access_token, "cc_at_");
-  strcat(token->access_token, client->client_id);
-  strcpy(token->token_type, "Bearer");
+  strncpy(token->access_token, "cc_at_", sizeof(token->access_token)-1); token->access_token[sizeof(token->access_token)-1] = '\0';
+  SAFE_STRCAT(token->access_token, client->client_id);
+  strncpy(token->token_type, "Bearer", sizeof(token->token_type)-1); token->token_type[sizeof(token->token_type)-1] = '\0';
   token->expires_at = time(NULL) + 7200;
   token->scopes = (char**)malloc(sizeof(char*) * scope_count);
   token->scope_count = scope_count;
 
   for (int i = 0; i < scope_count; i++) {
     token->scopes[i] = (char*)malloc(strlen(scopes[i]) + 1);
-    strcpy(token->scopes[i], scopes[i]);
+    SAFE_STRCPY(token->scopes[i], scopes[i]);
   }
 
   *token_out = token;

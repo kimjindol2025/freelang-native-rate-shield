@@ -3,6 +3,7 @@
  */
 
 #include "metrics.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -28,9 +29,9 @@ fl_metric_t* fl_metrics_new_registry(void) {
   if (!registry) return NULL;
 
   registry->name = (char*)malloc(64);
-  strcpy(registry->name, "freelang_registry");
+  strncpy(registry->name, "freelang_registry", sizeof(registry->name)-1); registry->name[sizeof(registry->name)-1] = '\0';
   registry->help = (char*)malloc(128);
-  strcpy(registry->help, "FreeLang metrics registry");
+  strncpy(registry->help, "FreeLang metrics registry", sizeof(registry->help)-1); registry->help[sizeof(registry->help)-1] = '\0';
   registry->value = 0;
   registry->histogram_buckets = NULL;
   registry->bucket_count = 0;
@@ -69,10 +70,10 @@ int fl_metrics_counter_create(fl_metric_t *registry, const char *name, const cha
   registry->type = FL_METRIC_COUNTER;
   free(registry->name);
   registry->name = (char*)malloc(strlen(name) + 1);
-  strcpy(registry->name, name);
+  SAFE_STRCPY(registry->name, name);
   free(registry->help);
   registry->help = (char*)malloc(strlen(help) + 1);
-  strcpy(registry->help, help);
+  SAFE_STRCPY(registry->help, help);
   registry->value = 0;
 
   pthread_mutex_lock(&metrics_mutex);
@@ -109,10 +110,10 @@ int fl_metrics_gauge_create(fl_metric_t *registry, const char *name, const char 
   registry->type = FL_METRIC_GAUGE;
   free(registry->name);
   registry->name = (char*)malloc(strlen(name) + 1);
-  strcpy(registry->name, name);
+  SAFE_STRCPY(registry->name, name);
   free(registry->help);
   registry->help = (char*)malloc(strlen(help) + 1);
-  strcpy(registry->help, help);
+  SAFE_STRCPY(registry->help, help);
   registry->value = 0;
 
   pthread_mutex_lock(&metrics_mutex);
@@ -175,10 +176,10 @@ int fl_metrics_histogram_create(fl_metric_t *registry, const char *name, const c
   registry->type = FL_METRIC_HISTOGRAM;
   free(registry->name);
   registry->name = (char*)malloc(strlen(name) + 1);
-  strcpy(registry->name, name);
+  SAFE_STRCPY(registry->name, name);
   free(registry->help);
   registry->help = (char*)malloc(strlen(help) + 1);
-  strcpy(registry->help, help);
+  SAFE_STRCPY(registry->help, help);
 
   if (buckets && bucket_count > 0) {
     registry->histogram_buckets = (int64_t*)malloc(sizeof(int64_t) * bucket_count);
@@ -213,10 +214,10 @@ int fl_metrics_summary_create(fl_metric_t *registry, const char *name, const cha
   registry->type = FL_METRIC_SUMMARY;
   free(registry->name);
   registry->name = (char*)malloc(strlen(name) + 1);
-  strcpy(registry->name, name);
+  SAFE_STRCPY(registry->name, name);
   free(registry->help);
   registry->help = (char*)malloc(strlen(help) + 1);
-  strcpy(registry->help, help);
+  SAFE_STRCPY(registry->help, help);
   registry->value = 0;
 
   pthread_mutex_lock(&metrics_mutex);
@@ -246,7 +247,7 @@ char* fl_metrics_export_prometheus(fl_metric_t *registry) {
   char *export = (char*)malloc(2048);
   if (!export) return NULL;
 
-  sprintf(export, "# HELP %s %s\n# TYPE %s %s\n%s %ld\n",
+  snprintf(export, sizeof(export), "# HELP %s %s\n# TYPE %s %s\n%s %ld\n",
           registry->name, registry->help ? registry->help : "",
           registry->name, (registry->type == FL_METRIC_COUNTER ? "counter" : "gauge"),
           registry->name, registry->value);
@@ -277,8 +278,8 @@ int fl_metrics_add_label(fl_metric_t *registry, const char *name, const char *la
   registry->labels[registry->label_count].label_name = (char*)malloc(strlen(label_name) + 1);
   registry->labels[registry->label_count].label_value = (char*)malloc(strlen(label_value) + 1);
 
-  strcpy((char*)registry->labels[registry->label_count].label_name, label_name);
-  strcpy((char*)registry->labels[registry->label_count].label_value, label_value);
+  SAFE_STRCPY((char*)registry->labels[registry->label_count].label_name, label_name);
+  SAFE_STRCPY((char*)registry->labels[registry->label_count].label_value, label_value);
   registry->label_count++;
 
   fprintf(stderr, "[metrics] Label added: %s=%s\n", label_name, label_value);

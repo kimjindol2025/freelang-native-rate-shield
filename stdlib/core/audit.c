@@ -3,6 +3,7 @@
  */
 
 #include "audit.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -36,7 +37,7 @@ fl_audit_logger_t* fl_audit_logger_create(const char *log_path) {
   if (!logger) return NULL;
 
   logger->log_path = (char*)malloc(strlen(log_path) + 1);
-  strcpy(logger->log_path, log_path);
+  SAFE_STRCPY(logger->log_path, log_path);
 
   logger->log_file = fopen(log_path, "a");
   if (!logger->log_file) {
@@ -79,7 +80,7 @@ int fl_audit_log_event(fl_audit_logger_t *logger, const char *user_id, fl_audit_
   event.details = (char*)details;
 
   event.event_id = (char*)malloc(64);
-  sprintf(event.event_id, "EVT_%ld_%s", event.timestamp, user_id);
+  snprintf(event.event_id, sizeof(event.event_id), "EVT_%ld_%s", event.timestamp, user_id);
   event.hash = fl_audit_compute_hash(&event);
 
   pthread_mutex_lock(&logger->log_mutex);

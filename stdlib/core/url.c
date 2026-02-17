@@ -4,6 +4,7 @@
  */
 
 #include "url.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -353,7 +354,7 @@ fl_query_string_t* fl_query_string_parse(const char *query) {
   qs->max_params = 20;
 
   char *query_copy = (char*)malloc(strlen(query) + 1);
-  strcpy(query_copy, query);
+  if(snprintf(query_copy, sizeof(query_copy), "%s", query) < 0) return -1;;
 
   char *saveptr = NULL;
   char *pair = strtok_r(query_copy, "&", &saveptr);
@@ -370,14 +371,14 @@ fl_query_string_t* fl_query_string_parse(const char *query) {
 
       strncpy(qs->params[qs->param_count].key, pair, key_len);
       qs->params[qs->param_count].key[key_len] = '\0';
-      strcpy(qs->params[qs->param_count].value, eq + 1);
+      SAFE_STRCPY(qs->params[qs->param_count].value, eq + 1);
 
       qs->param_count++;
     } else {
       /* Key without value */
       qs->params[qs->param_count].key = (char*)malloc(strlen(pair) + 1);
       qs->params[qs->param_count].value = (char*)malloc(1);
-      strcpy(qs->params[qs->param_count].key, pair);
+      SAFE_STRCPY(qs->params[qs->param_count].key, pair);
       qs->params[qs->param_count].value[0] = '\0';
 
       qs->param_count++;
@@ -426,7 +427,7 @@ int fl_query_string_set(fl_query_string_t *qs, const char *key,
     if (strcmp(qs->params[i].key, key) == 0) {
       free(qs->params[i].value);
       qs->params[i].value = (char*)malloc(strlen(value) + 1);
-      strcpy(qs->params[i].value, value);
+      SAFE_STRCPY(qs->params[i].value, value);
       return 0;
     }
   }
@@ -438,8 +439,8 @@ int fl_query_string_set(fl_query_string_t *qs, const char *key,
 
   qs->params[qs->param_count].key = (char*)malloc(strlen(key) + 1);
   qs->params[qs->param_count].value = (char*)malloc(strlen(value) + 1);
-  strcpy(qs->params[qs->param_count].key, key);
-  strcpy(qs->params[qs->param_count].value, value);
+  SAFE_STRCPY(qs->params[qs->param_count].key, key);
+  SAFE_STRCPY(qs->params[qs->param_count].value, value);
   qs->param_count++;
 
   return 0;
@@ -465,10 +466,10 @@ char* fl_query_string_encode(fl_query_string_t *qs) {
       output[out_idx++] = '&';
     }
 
-    strcpy(&output[out_idx], qs->params[i].key);
+    SAFE_STRCPY(&output[out_idx], qs->params[i].key);
     out_idx += strlen(qs->params[i].key);
     output[out_idx++] = '=';
-    strcpy(&output[out_idx], qs->params[i].value);
+    SAFE_STRCPY(&output[out_idx], qs->params[i].value);
     out_idx += strlen(qs->params[i].value);
   }
 

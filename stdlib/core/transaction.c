@@ -4,6 +4,7 @@
  */
 
 #include "transaction.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -185,7 +186,7 @@ int fl_transaction_create_savepoint(fl_transaction_t *txn, const char *name) {
   fl_savepoint_t *sp = &txn->savepoints[txn->savepoint_count];
   
   sp->name = (char*)malloc(strlen(name) + 1);
-  strcpy(sp->name, name);
+  SAFE_STRCPY(sp->name, name);
   sp->created_at = time(NULL) * 1000;
   sp->operation_count = 0;
 
@@ -289,7 +290,7 @@ int fl_transaction_lock_resource(fl_transaction_t *txn, const char *resource_id,
   txn->lock_types = new_types;
 
   txn->locked_resources[txn->lock_count] = (char*)malloc(strlen(resource_id) + 1);
-  strcpy(txn->locked_resources[txn->lock_count], resource_id);
+  SAFE_STRCPY(txn->locked_resources[txn->lock_count], resource_id);
   txn->lock_types[txn->lock_count] = lock_type;
 
   txn->lock_count++;

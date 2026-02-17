@@ -4,6 +4,7 @@
  */
 
 #include "connpool.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -38,7 +39,7 @@ fl_connpool_t* fl_connpool_create(const char *connection_string, int initial_siz
   if (!pool) return NULL;
 
   pool->connection_string = (char*)malloc(strlen(connection_string) + 1);
-  strcpy(pool->connection_string, connection_string);
+  SAFE_STRCPY(pool->connection_string, connection_string);
   pool->initial_size = initial_size;
   pool->max_size = max_size;
   

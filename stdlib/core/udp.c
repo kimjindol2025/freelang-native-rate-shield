@@ -4,6 +4,7 @@
  */
 
 #include "udp.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -46,11 +47,11 @@ fl_udp_multicast_t* fl_udp_multicast_create(fl_udp_multicast_config_t *config) {
 
   mcast->config = (fl_udp_multicast_config_t*)malloc(sizeof(fl_udp_multicast_config_t));
   mcast->config->group_address = (char*)malloc(strlen(config->group_address) + 1);
-  strcpy(mcast->config->group_address, config->group_address);
+  SAFE_STRCPY(mcast->config->group_address, config->group_address);
 
   if (config->interface_address) {
     mcast->config->interface_address = (char*)malloc(strlen(config->interface_address) + 1);
-    strcpy(mcast->config->interface_address, config->interface_address);
+    SAFE_STRCPY(mcast->config->interface_address, config->interface_address);
   } else {
     mcast->config->interface_address = NULL;
   }
@@ -389,7 +390,7 @@ int fl_udp_server_accept(fl_udp_server_t *server, int timeout_ms) {
     if (server->session_count < server->max_sessions) {
       fl_udp_client_session_t *sess = &server->sessions[server->session_count];
       sess->client_address = (char*)malloc(strlen(src_addr.address) + 1);
-      strcpy(sess->client_address, src_addr.address);
+      SAFE_STRCPY(sess->client_address, src_addr.address);
       sess->client_port = src_addr.port;
       sess->bytes_received = received;
       sess->packets_received = 1;

@@ -4,6 +4,7 @@
  */
 
 #include "lb.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -88,7 +89,7 @@ int fl_lb_add_backend(fl_lb_t *lb, const char *host, uint16_t port, int weight) 
   fl_lb_backend_t *backend = &lb->backends[lb->backend_count];
   
   backend->host = (char*)malloc(strlen(host) + 1);
-  strcpy(backend->host, host);
+  SAFE_STRCPY(backend->host, host);
   backend->port = port;
   backend->weight = weight > 0 ? weight : 1;
   backend->is_healthy = 1;
@@ -208,7 +209,7 @@ int fl_lb_set_health_check(fl_lb_t *lb, const fl_lb_health_check_t *config) {
   
   if (config->path) {
     lb->health_check.path = (char*)malloc(strlen(config->path) + 1);
-    strcpy(lb->health_check.path, config->path);
+    SAFE_STRCPY(lb->health_check.path, config->path);
   }
   
   lb->health_check.expected_status = config->expected_status;

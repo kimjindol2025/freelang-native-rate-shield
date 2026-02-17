@@ -4,6 +4,7 @@
  */
 
 #include "sql.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -93,11 +94,11 @@ fl_sql_builder_t* fl_sql_select(fl_sql_builder_t *builder, const char **columns,
   }
   
   char *clause = (char*)malloc(total_len);
-  strcpy(clause, "SELECT ");
+  strncpy(clause, "SELECT ", sizeof(clause)-1); clause[sizeof(clause)-1] = '\0';
   
   for (int i = 0; i < column_count; i++) {
-    strcat(clause, columns[i]);
-    if (i < column_count - 1) strcat(clause, ", ");
+    SAFE_STRCAT(clause, columns[i]);
+    if (i < column_count - 1) strncat(clause, ", ", sizeof(clause)-strlen(clause)-1);
   }
 
   builder->select_clause = clause;
@@ -141,7 +142,7 @@ fl_sql_builder_t* fl_sql_join(fl_sql_builder_t *builder, const char *table, cons
 
   if (builder->join_clause) {
     char *combined = (char*)malloc(strlen(builder->join_clause) + strlen(clause) + 2);
-    sprintf(combined, "%s %s", builder->join_clause, clause);
+    snprintf(combined, sizeof(combined), "%s %s", builder->join_clause, clause);
     free(builder->join_clause);
     free(clause);
     builder->join_clause = combined;
@@ -198,13 +199,13 @@ fl_sql_builder_t* fl_sql_values(fl_sql_builder_t *builder, const char **columns,
 
   size_t total_len = 50 + column_count * 10;
   char *clause = (char*)malloc(total_len);
-  strcpy(clause, "VALUES (");
+  strncpy(clause, "VALUES (", sizeof(clause)-1); clause[sizeof(clause)-1] = '\0';
   
   for (int i = 0; i < column_count; i++) {
-    strcat(clause, "?");
-    if (i < column_count - 1) strcat(clause, ", ");
+    strncat(clause, "?", sizeof(clause)-strlen(clause)-1);
+    if (i < column_count - 1) strncat(clause, ", ", sizeof(clause)-strlen(clause)-1);
   }
-  strcat(clause, ")");
+  strncat(clause, ")", sizeof(clause)-strlen(clause)-1);
 
   free(builder->select_clause);
   builder->select_clause = clause;
@@ -307,7 +308,7 @@ int fl_sql_bind_text(fl_sql_builder_t *builder, int param_index, const char *val
   fl_sql_param_t param;
   param.type = FL_SQL_TEXT;
   param.value.text_val = (char*)malloc(strlen(value) + 1);
-  strcpy(param.value.text_val, value);
+  SAFE_STRCPY(param.value.text_val, value);
   return fl_sql_bind_parameter(builder, param_index, &param);
 }
 
@@ -331,32 +332,32 @@ char* fl_sql_build(fl_sql_builder_t *builder) {
   char *query = (char*)malloc(total_len);
   query[0] = '\0';
 
-  if (builder->select_clause) strcat(query, builder->select_clause);
+  if (builder->select_clause) SAFE_STRCAT(query, builder->select_clause);
   if (builder->from_clause) {
-    strcat(query, " ");
-    strcat(query, builder->from_clause);
+    strncat(query, " ", sizeof(query)-strlen(query)-1);
+    SAFE_STRCAT(query, builder->from_clause);
   }
   if (builder->join_clause) {
-    strcat(query, " ");
-    strcat(query, builder->join_clause);
+    strncat(query, " ", sizeof(query)-strlen(query)-1);
+    SAFE_STRCAT(query, builder->join_clause);
   }
   if (builder->where_clause) {
-    strcat(query, " ");
-    strcat(query, builder->where_clause);
+    strncat(query, " ", sizeof(query)-strlen(query)-1);
+    SAFE_STRCAT(query, builder->where_clause);
   }
   if (builder->order_by_clause) {
-    strcat(query, " ");
-    strcat(query, builder->order_by_clause);
+    strncat(query, " ", sizeof(query)-strlen(query)-1);
+    SAFE_STRCAT(query, builder->order_by_clause);
   }
   if (builder->limit_value >= 0) {
     char limit_str[50];
     snprintf(limit_str, sizeof(limit_str), " LIMIT %d", builder->limit_value);
-    strcat(query, limit_str);
+    SAFE_STRCAT(query, limit_str);
   }
   if (builder->offset_value > 0) {
     char offset_str[50];
     snprintf(offset_str, sizeof(offset_str), " OFFSET %d", builder->offset_value);
-    strcat(query, offset_str);
+    SAFE_STRCAT(query, offset_str);
   }
 
   pthread_mutex_lock(&sql_mutex);
@@ -380,7 +381,7 @@ fl_sql_execution_plan_t* fl_sql_explain(fl_sql_builder_t *builder) {
   if (!plan) return NULL;
 
   plan->plan_text = (char*)malloc(200);
-  strcpy(plan->plan_text, "SCAN TABLE (estimated)");
+  strncpy(plan->plan_text, "SCAN TABLE (estimated)", sizeof(plan->plan_text)-1); plan->plan_text[sizeof(plan->plan_text)-1] = '\0';
   plan->estimated_cost = builder->from_clause ? 100 : 10;
   plan->estimated_rows = 1000;
   plan->used_indexes = NULL;

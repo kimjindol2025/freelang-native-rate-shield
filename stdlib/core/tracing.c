@@ -3,6 +3,7 @@
  */
 
 #include "tracing.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -39,10 +40,10 @@ fl_tracer_t* fl_tracer_create(const char *service_name) {
   if (!tracer) return NULL;
 
   tracer->service_name = (char*)malloc(strlen(service_name) + 1);
-  strcpy(tracer->service_name, service_name);
+  SAFE_STRCPY(tracer->service_name, service_name);
 
   tracer->trace_id_base = (char*)malloc(64);
-  sprintf(tracer->trace_id_base, "trace_%ld_%d", time(NULL), getpid());
+  SAFE_SPRINTF(tracer->trace_id_base, "trace_%ld_%d", time(NULL), getpid());
 
   tracer->is_recording = 1;
 
@@ -67,13 +68,13 @@ fl_span_t* fl_span_start(fl_tracer_t *tracer, const char *span_name, fl_span_kin
   if (!span) return NULL;
 
   span->operation_name = (char*)malloc(strlen(span_name) + 1);
-  strcpy(span->operation_name, span_name);
+  SAFE_STRCPY(span->operation_name, span_name);
 
   span->span_id = (char*)malloc(64);
-  sprintf(span->span_id, "span_%ld_%d", time(NULL), rand() % 10000);
+  SAFE_SPRINTF(span->span_id, "span_%ld_%d", time(NULL), rand() % 10000);
 
   span->trace_id = (char*)malloc(strlen(tracer->trace_id_base) + 1);
-  strcpy(span->trace_id, tracer->trace_id_base);
+  SAFE_STRCPY(span->trace_id, tracer->trace_id_base);
 
   span->parent_span_id = NULL;
   span->span_kind = span_kind;
@@ -209,7 +210,7 @@ char* fl_trace_inject_context(fl_span_t *span) {
   char *context = (char*)malloc(256);
   if (!context) return NULL;
 
-  sprintf(context, "traceparent=00-%s-%s-01", span->trace_id, span->span_id);
+  snprintf(context, sizeof(context), "traceparent=00-%s-%s-01", span->trace_id, span->span_id);
 
   fprintf(stderr, "[tracing] Context injected\n");
   return context;
@@ -224,9 +225,9 @@ fl_span_t* fl_trace_extract_context(fl_tracer_t *tracer, const char *context) {
   span->trace_id = (char*)malloc(64);
   span->span_id = (char*)malloc(64);
   span->operation_name = (char*)malloc(32);
-  strcpy(span->operation_name, "extracted");
-  strcpy(span->trace_id, "extracted_trace");
-  strcpy(span->span_id, "extracted_span");
+  strncpy(span->operation_name, "extracted", sizeof(span->operation_name)-1); span->operation_name[sizeof(span->operation_name)-1] = '\0';
+  strncpy(span->trace_id, "extracted_trace", sizeof(span->trace_id)-1); span->trace_id[sizeof(span->trace_id)-1] = '\0';
+  strncpy(span->span_id, "extracted_span", sizeof(span->span_id)-1); span->span_id[sizeof(span->span_id)-1] = '\0';
   span->parent_span_id = NULL;
   span->span_kind = FL_SPAN_CLIENT;
   span->status = FL_SPAN_OK;

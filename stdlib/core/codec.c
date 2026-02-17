@@ -4,8 +4,11 @@
  */
 
 #include "codec.h"
+#include "security_macros.h"
 #include "base64.h"
+#include "security_macros.h"
 #include "hex.h"
+#include "security_macros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -82,7 +85,7 @@ int fl_codec_register(fl_codec_registry_t *registry, fl_codec_type_t type,
   codec->name = (const char*)malloc(strlen(name) + 1);
   if (!codec->name) return -1;
 
-  strcpy((char*)codec->name, name);
+  SAFE_STRCPY((char*)codec->name, name);
   codec->encode = encode;
   codec->decode = decode;
 
