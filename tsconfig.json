@@ -12,8 +12,7 @@
     "resolveJsonModule": true,
     "moduleResolution": "node",
     "noImplicitAny": false,
-    "downlevelIteration": true,
-    "suppressImplicitAnyIndexErrors": true
+    "downlevelIteration": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "tests"]

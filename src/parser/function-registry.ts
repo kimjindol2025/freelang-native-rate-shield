@@ -77,6 +77,7 @@ export class FunctionRegistry {
   clear(): void {
     this.functions.clear();
     this.callCounts.clear();
+    this.types.clear();
   }
 
   /**
@@ -114,6 +115,93 @@ export class FunctionRegistry {
     for (const name of this.functions.keys()) {
       this.callCounts.set(name, 0);
     }
+  }
+
+  /**
+   * Store type information for a function
+   */
+  registerTypes(name: string, types: FunctionTypes): void {
+    this.types.set(name, types);
+  }
+
+  /**
+   * Get type information for a function
+   */
+  getTypes(name: string): FunctionTypes | null {
+    return this.types.get(name) || null;
+  }
+
+  /**
+   * Check if function has type information
+   */
+  hasTypes(name: string): boolean {
+    return this.types.has(name);
+  }
+
+  /**
+   * Get function signature string
+   * Example: "fn add(a: number, b: number): number"
+   */
+  getSignature(name: string): string {
+    const fn = this.lookup(name);
+    if (!fn) return '';
+
+    const types = this.getTypes(name);
+    if (!types) {
+      // No type info, return basic signature
+      return `fn ${name}(${fn.params.join(', ')})`;
+    }
+
+    const params = fn.params
+      .map(p => types.params[p] ? `${p}: ${types.params[p]}` : p)
+      .join(', ');
+
+    const returnPart = types.returnType ? `: ${types.returnType}` : '';
+    return `fn ${name}(${params})${returnPart}`;
+  }
+
+  /**
+   * Validate function call with type checking
+   */
+  validateCall(name: string, argTypes: string[]): { valid: boolean; message: string } {
+    if (!this.exists(name)) {
+      return { valid: false, message: `Function '${name}' not found` };
+    }
+
+    const fn = this.lookup(name)!;
+    const types = this.getTypes(name);
+
+    // If no type info, can't validate
+    if (!types) {
+      return { valid: true, message: `Function '${name}' has no type information` };
+    }
+
+    // Check parameter count
+    if (argTypes.length !== fn.params.length) {
+      return {
+        valid: false,
+        message: `Function '${name}' expects ${fn.params.length} arguments, got ${argTypes.length}`
+      };
+    }
+
+    // Check each parameter type (simplified - any type is accepted as compatible with any)
+    for (let i = 0; i < fn.params.length; i++) {
+      const paramName = fn.params[i];
+      const expectedType = types.params[paramName];
+      const providedType = argTypes[i];
+
+      // If parameter has type annotation, should match
+      if (expectedType && providedType !== 'any' && expectedType !== 'any') {
+        if (expectedType !== providedType) {
+          return {
+            valid: false,
+            message: `Parameter '${paramName}' expects ${expectedType}, got ${providedType}`
+          };
+        }
+      }
+    }
+
+    return { valid: true, message: `Function '${name}' call is valid` };
   }
 }
 
