@@ -16,6 +16,10 @@ import { HTTPServer, HTTPClient, SimpleRouter } from '../phase-9/http-server';
 import { AsyncUtils, Spawn, AsyncChain } from '../phase-9/async-concurrency';
 import { MemoryMonitor, PerformanceProfiler } from '../phase-9/memory-monitor';
 import { WebProxy, LoadBalancer } from '../phase-9/web-proxy';
+import { StringUtils, RegexUtils } from '../phase-10/string-utils';
+import { FileIO } from '../phase-10/file-io';
+import { ThreadManager, ThreadPool, Mutex, Channel, parallelMap, parallelFilter } from '../phase-10/threading';
+import { HashMap, HashSet, Queue, Stack, PriorityQueue } from '../phase-10/collections';
 
 /**
  * 내부 실행 결과
@@ -639,6 +643,231 @@ export class SmartREPL {
           } catch (error) {
             return { success: false, error: String(error) };
           }
+        },
+
+        // ==================== Phase 10: String Utils ====================
+        str_split: (str: string, sep: string) => StringUtils.split(str, sep),
+        str_join: (arr: string[], sep: string = '') => StringUtils.join(arr, sep),
+        str_trim: (str: string) => StringUtils.trim(str),
+        str_contains: (str: string, substr: string) => StringUtils.contains(str, substr),
+        str_startsWith: (str: string, prefix: string) => StringUtils.startsWith(str, prefix),
+        str_endsWith: (str: string, suffix: string) => StringUtils.endsWith(str, suffix),
+        str_indexOf: (str: string, substr: string) => StringUtils.indexOf(str, substr),
+        str_replace: (str: string, from: string, to: string) => StringUtils.replace(str, from, to),
+        str_replaceAll: (str: string, from: string, to: string) => StringUtils.replaceAll(str, from, to),
+        str_toUpperCase: (str: string) => StringUtils.toUpperCase(str),
+        str_toLowerCase: (str: string) => StringUtils.toLowerCase(str),
+        str_length: (str: string) => StringUtils.getLength(str),
+        str_isEmpty: (str: string) => StringUtils.isEmpty(str),
+        str_toCamelCase: (str: string) => StringUtils.toCamelCase(str),
+        str_toSnakeCase: (str: string) => StringUtils.toSnakeCase(str),
+        str_toKebabCase: (str: string) => StringUtils.toKebabCase(str),
+        str_reverse: (str: string) => StringUtils.reverse(str),
+        str_repeat: (str: string, count: number) => StringUtils.repeat(str, count),
+
+        // ==================== Phase 10: Regex Utils ====================
+        regex_isEmail: (str: string) => RegexUtils.isEmail(str),
+        regex_isUrl: (str: string) => RegexUtils.isUrl(str),
+        regex_isIp: (str: string) => RegexUtils.isIpAddress(str),
+        regex_isNumeric: (str: string) => RegexUtils.isNumeric(str),
+        regex_isAlpha: (str: string) => RegexUtils.isAlpha(str),
+        regex_isAlphanumeric: (str: string) => RegexUtils.isAlphanumeric(str),
+        regex_sanitize: (str: string) => RegexUtils.sanitize(str),
+        regex_htmlEscape: (str: string) => RegexUtils.htmlEscape(str),
+        regex_parseCSV: (str: string) => RegexUtils.parseCSV(str),
+        regex_parseLog: (line: string) => RegexUtils.parseLog(line),
+        regex_extractTimestamp: (line: string) => RegexUtils.extractTimestamp(line),
+        regex_extractIp: (line: string) => RegexUtils.extractIp(line),
+        regex_isValidJson: (str: string) => RegexUtils.isValidJson(str),
+
+        // ==================== Phase 10: File I/O ====================
+        file_read: (path: string) => {
+          const io = new FileIO();
+          return io.readFile(path);
+        },
+        file_write: (path: string, content: string) => {
+          const io = new FileIO();
+          io.writeFile(path, content);
+          return { success: true };
+        },
+        file_append: (path: string, content: string) => {
+          const io = new FileIO();
+          io.appendFile(path, content);
+          return { success: true };
+        },
+        file_exists: (path: string) => {
+          const io = new FileIO();
+          return io.exists(path);
+        },
+        file_stat: (path: string) => {
+          const io = new FileIO();
+          return io.stat(path);
+        },
+        file_delete: (path: string) => {
+          const io = new FileIO();
+          io.deleteFile(path);
+          return { success: true };
+        },
+        file_copy: (from: string, to: string) => {
+          const io = new FileIO();
+          io.copyFile(from, to);
+          return { success: true };
+        },
+        file_move: (from: string, to: string) => {
+          const io = new FileIO();
+          io.moveFile(from, to);
+          return { success: true };
+        },
+        file_list: (dir: string) => {
+          const io = new FileIO();
+          return io.listFiles(dir);
+        },
+        file_listRecursive: (dir: string) => {
+          const io = new FileIO();
+          return io.listFilesRecursive(dir);
+        },
+        file_mkdir: (dir: string) => {
+          const io = new FileIO();
+          io.createDirectory(dir);
+          return { success: true };
+        },
+        file_readLines: (path: string) => {
+          const io = new FileIO();
+          return io.readLines(path);
+        },
+
+        // ==================== Phase 10: Threading ====================
+        spawn_thread: async (fn: () => Promise<any>) => {
+          const manager = new ThreadManager();
+          const thread = await manager.spawnThread(fn);
+          (this.context.variables as Map<string, any>).set(`__thread_${thread.id}`, thread);
+          return { id: thread.id, state: thread.state };
+        },
+        spawn_join: async (threadId: string) => {
+          const manager = new ThreadManager();
+          const thread = (this.context.variables as Map<string, any>).get(`__thread_${threadId}`);
+          if (!thread) throw new Error('Thread not found');
+          return await manager.join(thread);
+        },
+        spawn_threadPool: (size: number) => {
+          const pool = new ThreadPool(size);
+          const poolId = `__pool_${Date.now()}`;
+          (this.context.variables as Map<string, any>).set(poolId, pool);
+          return { poolId };
+        },
+        spawn_addTask: (poolId: string, fn: () => Promise<any>) => {
+          const pool = (this.context.variables as Map<string, any>).get(poolId);
+          if (!pool) throw new Error('Pool not found');
+          pool.addTask(fn);
+          return { success: true };
+        },
+        spawn_runPool: async (poolId: string) => {
+          const pool = (this.context.variables as Map<string, any>).get(poolId);
+          if (!pool) throw new Error('Pool not found');
+          return await pool.run();
+        },
+
+        // ==================== Phase 10: Collections ====================
+        map_new: () => {
+          const map = new HashMap<any, any>();
+          const mapId = `__map_${Date.now()}`;
+          (this.context.variables as Map<string, any>).set(mapId, map);
+          return { mapId };
+        },
+        map_set: (mapId: string, key: any, value: any) => {
+          const map = (this.context.variables as Map<string, any>).get(mapId);
+          if (!map) throw new Error('Map not found');
+          map.set(key, value);
+          return { success: true };
+        },
+        map_get: (mapId: string, key: any) => {
+          const map = (this.context.variables as Map<string, any>).get(mapId);
+          if (!map) throw new Error('Map not found');
+          return map.get(key);
+        },
+        map_has: (mapId: string, key: any) => {
+          const map = (this.context.variables as Map<string, any>).get(mapId);
+          if (!map) throw new Error('Map not found');
+          return map.has(key);
+        },
+        map_keys: (mapId: string) => {
+          const map = (this.context.variables as Map<string, any>).get(mapId);
+          if (!map) throw new Error('Map not found');
+          return map.keys();
+        },
+        map_size: (mapId: string) => {
+          const map = (this.context.variables as Map<string, any>).get(mapId);
+          if (!map) throw new Error('Map not found');
+          return map.size();
+        },
+
+        set_new: () => {
+          const set = new HashSet<any>();
+          const setId = `__set_${Date.now()}`;
+          (this.context.variables as Map<string, any>).set(setId, set);
+          return { setId };
+        },
+        set_add: (setId: string, item: any) => {
+          const set = (this.context.variables as Map<string, any>).get(setId);
+          if (!set) throw new Error('Set not found');
+          set.add(item);
+          return { success: true };
+        },
+        set_has: (setId: string, item: any) => {
+          const set = (this.context.variables as Map<string, any>).get(setId);
+          if (!set) throw new Error('Set not found');
+          return set.has(item);
+        },
+        set_size: (setId: string) => {
+          const set = (this.context.variables as Map<string, any>).get(setId);
+          if (!set) throw new Error('Set not found');
+          return set.size();
+        },
+
+        queue_new: () => {
+          const queue = new Queue<any>();
+          const queueId = `__queue_${Date.now()}`;
+          (this.context.variables as Map<string, any>).set(queueId, queue);
+          return { queueId };
+        },
+        queue_enqueue: (queueId: string, item: any) => {
+          const queue = (this.context.variables as Map<string, any>).get(queueId);
+          if (!queue) throw new Error('Queue not found');
+          queue.enqueue(item);
+          return { success: true };
+        },
+        queue_dequeue: (queueId: string) => {
+          const queue = (this.context.variables as Map<string, any>).get(queueId);
+          if (!queue) throw new Error('Queue not found');
+          return queue.dequeue();
+        },
+        queue_peek: (queueId: string) => {
+          const queue = (this.context.variables as Map<string, any>).get(queueId);
+          if (!queue) throw new Error('Queue not found');
+          return queue.peek();
+        },
+
+        stack_new: () => {
+          const stack = new Stack<any>();
+          const stackId = `__stack_${Date.now()}`;
+          (this.context.variables as Map<string, any>).set(stackId, stack);
+          return { stackId };
+        },
+        stack_push: (stackId: string, item: any) => {
+          const stack = (this.context.variables as Map<string, any>).get(stackId);
+          if (!stack) throw new Error('Stack not found');
+          stack.push(item);
+          return { success: true };
+        },
+        stack_pop: (stackId: string) => {
+          const stack = (this.context.variables as Map<string, any>).get(stackId);
+          if (!stack) throw new Error('Stack not found');
+          return stack.pop();
+        },
+        stack_peek: (stackId: string) => {
+          const stack = (this.context.variables as Map<string, any>).get(stackId);
+          if (!stack) throw new Error('Stack not found');
+          return stack.peek();
         },
 
         // ==================== I/O 함수 ====================
