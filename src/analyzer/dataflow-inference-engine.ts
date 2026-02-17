@@ -17,6 +17,8 @@ import { CallGraphBuilder, CallGraph } from './call-graph-builder';
 import { DataFlowGraphBuilder, DataFlowGraph, FunctionSignature } from './dataflow-graph';
 import { ReturnTypePropagationEngine, ReturnTypeInfo } from './return-type-propagation';
 import { ParameterConstraintsEngine, FunctionParametersInfo } from './parameter-constraints';
+import { ConstraintSolverEngine, ConstraintSolverResult } from './constraint-solver';
+import { TraitEngine, TraitEngineResult } from './trait-engine';
 
 /**
  * 통합 분석 결과

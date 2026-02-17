@@ -58,6 +58,12 @@ export class AIFirstTypeInferenceEngine {
   private variableNameEnhancer: VariableNameEnhancer;
   private commentAnalyzer: CommentAnalyzer;
 
+  // Advanced type system engines (Phase 4)
+  private unionNarrowing?: UnionNarrowingEngine;
+  private genericsResolution?: GenericsResolutionEngine;
+  private constraintSolver?: ConstraintSolverEngine;
+  private traitEngine?: TraitEngine;
+
   /**
    * 타입 호환성 매트릭스 (신뢰도 기반)
    * 같은 도메인 내에서는 타입이 일관되어야 함
@@ -485,6 +491,57 @@ export class AIFirstTypeInferenceEngine {
       uncertainty: `Alternative from ${alt.reason}`,
       recommendation: `Consider: ${alt.type}`,
     }));
+  }
+
+  /**
+   * 고급 타입 엔진들을 활성화하여 확장된 타입 추론 수행
+   *
+   * Phase 4 통합: Union Narrowing, Generics Resolution, Constraint Solving, Traits
+   */
+  inferTypeWithAdvancedEngines(
+    name: string,
+    code: string,
+    options?: {
+      enableUnionNarrowing?: boolean;
+      enableGenerics?: boolean;
+      enableConstraints?: boolean;
+      enableTraits?: boolean;
+    }
+  ): InferredType {
+    // 기본 타입 추론 수행
+    const baseResult = this.inferType(name, 'variable', undefined, code);
+
+    // Union Narrowing
+    if (options?.enableUnionNarrowing) {
+      if (!this.unionNarrowing) {
+        this.unionNarrowing = new UnionNarrowingEngine();
+      }
+      const unionResult = this.unionNarrowing.build(code);
+      const narrowedType = this.unionNarrowing.getNarrowedType(unionResult, name);
+      if (narrowedType && narrowedType !== baseResult.type) {
+        baseResult.type = narrowedType;
+        baseResult.confidence = Math.min(0.95, baseResult.confidence + 0.10);
+        baseResult.sources.push('union_narrowing');
+        baseResult.reasoning.push(`Union narrowing applied: ${narrowedType}`);
+      }
+    }
+
+    // Generics Resolution
+    if (options?.enableGenerics) {
+      if (!this.genericsResolution) {
+        this.genericsResolution = new GenericsResolutionEngine();
+      }
+      const genericsResult = this.genericsResolution.build(code);
+      const instantiations = this.genericsResolution.getInstantiations(genericsResult, name);
+      if (instantiations.length > 0 && instantiations[0].resultType !== baseResult.type) {
+        baseResult.type = instantiations[0].resultType;
+        baseResult.confidence = Math.min(0.95, baseResult.confidence + 0.05);
+        baseResult.sources.push('generics_resolution');
+        baseResult.reasoning.push(`Generics instantiated to: ${instantiations[0].resultType}`);
+      }
+    }
+
+    return baseResult;
   }
 
   /**
