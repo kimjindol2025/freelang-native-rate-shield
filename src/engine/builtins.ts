@@ -432,6 +432,154 @@ export const BUILTINS: Record<string, BuiltinSpec> = {
       // Stub
     },
   },
+
+  // ────────────────────────────────────────
+  // Redis Bindings (Phase 17 Week 2)
+  // ────────────────────────────────────────
+
+  redis_create: {
+    name: 'redis_create',
+    params: [
+      { name: 'host', type: 'string' },
+      { name: 'port', type: 'number' },
+      { name: 'callback_ctx_id', type: 'number' },
+    ],
+    return_type: 'number',  // client_id
+    c_name: 'freelang_redis_create',
+    headers: ['redis_bindings.h'],
+    impl: (host: string, port: number, _callbackCtxId: number) => {
+      // Fallback: return a unique client ID
+      return Math.floor(Math.random() * 1000000);
+    },
+  },
+
+  redis_close: {
+    name: 'redis_close',
+    params: [{ name: 'client_id', type: 'number' }],
+    return_type: 'void',
+    c_name: 'freelang_redis_close',
+    headers: ['redis_bindings.h'],
+    impl: (_clientId: number) => {
+      // Stub
+    },
+  },
+
+  redis_get: {
+    name: 'redis_get',
+    params: [
+      { name: 'client_id', type: 'number' },
+      { name: 'key', type: 'string' },
+      { name: 'callback_id', type: 'number' },
+    ],
+    return_type: 'void',
+    c_name: 'freelang_redis_get',
+    headers: ['redis_bindings.h'],
+    impl: (_clientId: number, _key: string, _callbackId: number) => {
+      // Stub
+    },
+  },
+
+  redis_set: {
+    name: 'redis_set',
+    params: [
+      { name: 'client_id', type: 'number' },
+      { name: 'key', type: 'string' },
+      { name: 'value', type: 'string' },
+      { name: 'callback_id', type: 'number' },
+    ],
+    return_type: 'void',
+    c_name: 'freelang_redis_set',
+    headers: ['redis_bindings.h'],
+    impl: (_clientId: number, _key: string, _value: string, _callbackId: number) => {
+      // Stub
+    },
+  },
+
+  redis_del: {
+    name: 'redis_del',
+    params: [
+      { name: 'client_id', type: 'number' },
+      { name: 'key', type: 'string' },
+      { name: 'callback_id', type: 'number' },
+    ],
+    return_type: 'void',
+    c_name: 'freelang_redis_del',
+    headers: ['redis_bindings.h'],
+    impl: (_clientId: number, _key: string, _callbackId: number) => {
+      // Stub
+    },
+  },
+
+  redis_exists: {
+    name: 'redis_exists',
+    params: [
+      { name: 'client_id', type: 'number' },
+      { name: 'key', type: 'string' },
+      { name: 'callback_id', type: 'number' },
+    ],
+    return_type: 'void',
+    c_name: 'freelang_redis_exists',
+    headers: ['redis_bindings.h'],
+    impl: (_clientId: number, _key: string, _callbackId: number) => {
+      // Stub
+    },
+  },
+
+  redis_incr: {
+    name: 'redis_incr',
+    params: [
+      { name: 'client_id', type: 'number' },
+      { name: 'key', type: 'string' },
+      { name: 'callback_id', type: 'number' },
+    ],
+    return_type: 'void',
+    c_name: 'freelang_redis_incr',
+    headers: ['redis_bindings.h'],
+    impl: (_clientId: number, _key: string, _callbackId: number) => {
+      // Stub
+    },
+  },
+
+  redis_expire: {
+    name: 'redis_expire',
+    params: [
+      { name: 'client_id', type: 'number' },
+      { name: 'key', type: 'string' },
+      { name: 'seconds', type: 'number' },
+      { name: 'callback_id', type: 'number' },
+    ],
+    return_type: 'void',
+    c_name: 'freelang_redis_expire',
+    headers: ['redis_bindings.h'],
+    impl: (_clientId: number, _key: string, _seconds: number, _callbackId: number) => {
+      // Stub
+    },
+  },
+
+  redis_is_connected: {
+    name: 'redis_is_connected',
+    params: [{ name: 'client_id', type: 'number' }],
+    return_type: 'number',
+    c_name: 'freelang_redis_is_connected',
+    headers: ['redis_bindings.h'],
+    impl: (_clientId: number) => {
+      return 0;  // Stub: not connected
+    },
+  },
+
+  redis_ping: {
+    name: 'redis_ping',
+    params: [
+      { name: 'client_id', type: 'number' },
+      { name: 'callback_id', type: 'number' },
+    ],
+    return_type: 'number',
+    c_name: 'freelang_redis_ping',
+    headers: ['redis_bindings.h'],
+    impl: (_clientId: number, _callbackId: number) => {
+      return 0;
+    },
+  },
 };
 
 // ────────────────────────────────────────

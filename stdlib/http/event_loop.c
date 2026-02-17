@@ -22,6 +22,11 @@
 #include <pthread.h>
 #include <time.h>
 
+/* Phase 17: libuv integration */
+#ifdef FREELANG_FFI_ENABLE
+#include "freelang_ffi.h"
+#endif
+
 /* ===== Handle & Request 기본 구조 ===== */
 
 /* Forward declarations */
@@ -76,6 +81,11 @@ struct fl_loop {
 
   /* 마지막 실행 시간 (타이머용) */
   time_t last_time;
+
+  /* Phase 17: libuv integration */
+#ifdef FREELANG_FFI_ENABLE
+  fl_event_context_t *ffi_context;  /* FFI context for async timers/callbacks */
+#endif
 };
 
 /* ===== Event Loop 초기화 ===== */
@@ -98,6 +108,14 @@ fl_loop_t* fl_loop_create(int thread_count) {
   loop->queue_capacity = 0;
 
   loop->last_time = time(NULL);
+
+#ifdef FREELANG_FFI_ENABLE
+  /* Initialize FFI context for timers */
+  loop->ffi_context = freelang_event_context_create();
+  if (loop->ffi_context) {
+    printf("[Event Loop] FFI context initialized (libuv timers enabled)\n");
+  }
+#endif
 
   printf("[Event Loop] 초기화 완료 (Thread Pool: %d)\n", loop->thread_count);
 
@@ -247,7 +265,14 @@ void fl_loop_run(fl_loop_t *loop) {
       break;
     }
 
-    // 2. I/O 이벤트 처리 (Poll Phase)
+    // 2. libuv events (Phase 17)
+#ifdef FREELANG_FFI_ENABLE
+    if (loop->ffi_context) {
+      freelang_event_loop_run(loop->ffi_context, 0);  /* Non-blocking */
+    }
+#endif
+
+    // 3. I/O 이벤트 처리 (Poll Phase)
     if (activity > 0) {
       for (int i = 0; i < loop->handle_count; i++) {
         fl_handle_t *handle = loop->handles[i];
@@ -259,7 +284,14 @@ void fl_loop_run(fl_loop_t *loop) {
       }
     }
 
-    // 3. Timer 처리
+    // 4. Callback Queue Processing (Phase 17)
+#ifdef FREELANG_FFI_ENABLE
+    if (loop->ffi_context) {
+      freelang_process_callbacks(loop->ffi_context);
+    }
+#endif
+
+    // 5. Timer 처리
     time_t now = time(NULL);
     if (now != loop->last_time) {
       loop->last_time = now;
@@ -284,6 +316,15 @@ void fl_loop_close(fl_loop_t *loop) {
   if (!loop) return;
 
   loop->running = 0;
+
+#ifdef FREELANG_FFI_ENABLE
+  /* Cleanup FFI context */
+  if (loop->ffi_context) {
+    freelang_event_loop_stop(loop->ffi_context);
+    freelang_event_context_destroy(loop->ffi_context);
+    loop->ffi_context = NULL;
+  }
+#endif
 
   // 모든 스레드 종료 대기
   for (int i = 0; i < loop->thread_count; i++) {
