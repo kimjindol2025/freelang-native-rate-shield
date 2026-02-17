@@ -7,7 +7,10 @@
  * - Real-time type inference
  * - Performance metrics (time, memory, type)
  * - Smart error handling
+ * - Phase 8: Struct support
  */
+
+import { structManager, StructDefinition } from '../phase-8/struct-system';
 
 /**
  * 내부 실행 결과
@@ -290,6 +293,73 @@ export class SmartREPL {
             }
             return result;
           };
+        },
+
+        // ==================== Struct 함수 (Phase 8) ====================
+        create_struct: (name: string, fields: Array<{ name: string; type: string; optional?: boolean; default?: any }>) => {
+          structManager.defineStruct({
+            name,
+            fields,
+          });
+          return { success: true, message: `Struct '${name}' created` };
+        },
+
+        new_instance: (name: string, values: Record<string, any>) => {
+          try {
+            return structManager.createInstance(name, values);
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        get_field: (instance: any, fieldName: string) => {
+          try {
+            if (instance._type !== 'struct') {
+              throw new Error('Not a struct instance');
+            }
+            return structManager.getField(instance, fieldName);
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        set_field: (instance: any, fieldName: string, value: any) => {
+          try {
+            if (instance._type !== 'struct') {
+              throw new Error('Not a struct instance');
+            }
+            return structManager.setField(instance, fieldName, value);
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        struct_info: (name: string) => {
+          try {
+            const info = structManager.getStructInfo(name);
+            if (!info) {
+              throw new Error(`Struct '${name}' not found`);
+            }
+            return info;
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        list_structs: () => {
+          return structManager.listStructs();
+        },
+
+        struct_access: (instance: any, fieldName: string) => {
+          // Shorthand: instance.fieldName
+          try {
+            if (instance._type !== 'struct') {
+              throw new Error('Not a struct instance');
+            }
+            return structManager.getField(instance, fieldName);
+          } catch (error) {
+            return undefined;
+          }
         },
 
         // ==================== I/O 함수 ====================
