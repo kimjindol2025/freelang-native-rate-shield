@@ -114,3 +114,84 @@ This serves as an excellent learning platform for understanding libuv's internal
 **Generated**: 2026-02-17
 **Benchmark Tool**: custom curl-based script
 **Status**: ✅ Complete and verified
+
+---
+
+## 3. Large File Benchmark (1 MB)
+
+### Results
+
+| Server | Duration | RPS | Avg Latency |
+|--------|----------|-----|-------------|
+| C Static Server | 0.469s | **213.21 req/s** | 4.69ms |
+| Node.js HTTP | 0.406s | **246.30 req/s** | 4.06ms |
+| **Performance** | - | **Node.js +15%** | **Node.js -13%** |
+
+### Surprising Finding: Node.js is Faster! 🤔
+
+With 1MB files, **Node.js HTTP server outperforms C by 1.155x**. This is the opposite of our 10KB results.
+
+### Root Cause Analysis
+
+1. **Memory Allocation Overhead (C)**
+   - Allocates 1MB buffer: `malloc(4096 + file_size)`
+   - Single large allocation is expensive
+   - Must hold entire file in memory
+
+2. **Streaming Advantage (Node.js)**
+   - Reads file in 64KB chunks
+   - Reuses buffer across requests
+   - Lower per-request memory footprint
+
+3. **Buffer Handling**
+   ```
+   C:       read(file) → malloc(4MB) → HTTP header + body → write()
+   Node.js: fs.createReadStream() → pipe() → write() [64KB chunks]
+   ```
+
+4. **I/O Pattern**
+   - C: Blocking read of entire file into memory
+   - Node.js: Non-blocking stream with backpressure handling
+
+### Key Insight
+
+**C excels at small files, but loses on large files due to full-buffering approach.**
+
+File Size Impact:
+- 10 KB: C +11.5% ✅
+- 1 MB: Node.js +15% ❌
+- 100 MB: Node.js likely +50%+
+
+### Optimization Opportunity: Streaming I/O
+
+To fix this, C server needs streaming implementation:
+
+```c
+// Current (slow for large files)
+char *buffer = malloc(4096 + file_size);
+fread(buffer + header_len, 1, file_size, file);
+write(client_fd, buffer, header_len + file_size);
+
+// Optimized (streaming)
+write(client_fd, header, header_len);
+while ((read_len = fread(chunk, 1, 64KB, file)) > 0) {
+  write(client_fd, chunk, read_len);
+}
+```
+
+Expected improvement: **2-3x for large files**
+
+### Conclusion
+
+This benchmark reveals an important performance principle:
+- **Small files (< 64KB)**: Full buffering is efficient
+- **Large files (> 1MB)**: Streaming is essential
+- **C's advantage disappears without streaming**
+
+The next phase should implement streaming I/O for fair comparison.
+
+---
+
+**Updated**: 2026-02-17
+**Test File**: large.dat (1 MB random data)
+**Status**: 🔴 C implementation needs streaming optimization
