@@ -10,7 +10,7 @@
 
 import patterns from './v1-v2-adjusted-patterns.json';
 
-interface IntentPattern {
+export interface IntentPattern {
   id: string;
   name: string;
   aliases: string[];
