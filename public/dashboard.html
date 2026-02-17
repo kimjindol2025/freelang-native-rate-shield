@@ -231,7 +231,37 @@
       margin-top: 40px;
       font-size: 12px;
     }
+
+    /* Phase 13: Chart.js 스타일 */
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin-bottom: 20px;
+    }
+
+    .chart-error {
+      color: #f56565;
+      padding: 15px;
+      text-align: center;
+      font-size: 12px;
+    }
   </style>
+
+  <!-- Phase 13: Chart.js 3.9.1 + Matrix Plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
+
+  <!-- CDN Fallback Detection -->
+  <script>
+    if (typeof Chart === 'undefined') {
+      console.error('Chart.js failed to load from CDN');
+      document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.chart-container').forEach(el => {
+          el.innerHTML = '<div class="chart-error">⚠️ Chart.js 라이브러리를 로드할 수 없습니다. CSS 차트로 표시됩니다.</div>';
+        });
+      });
+    }
+  </script>
 </head>
 <body>
   <div class="container">
@@ -389,6 +419,13 @@
     <!-- 신뢰도 추이 -->
     <div class="section">
       <h2>📈 신뢰도 추이 (최근 7일)</h2>
+
+      <!-- Phase 13: 라인 차트 (Interactive) -->
+      <div class="chart-container">
+        <canvas id="confidence-line-chart"></canvas>
+      </div>
+
+      <!-- Phase 12: 테이블 (폴백) -->
       <table id="confidence-trends-table">
         <thead>
           <tr>
@@ -783,6 +820,9 @@
         })
         .join('');
 
+      // Phase 13: 라인 차트 업데이트
+      updateConfidenceLineChart(trends);
+
       // 신뢰도 분포 히스토그램 업데이트
       updateConfidenceHistogram(trends);
     }
@@ -824,6 +864,139 @@
           <div style="color: #48bb78;">■ 조정 후</div>
         </div>
       `;
+    }
+
+    // ========== Phase 13: Chart.js 라인 차트 ==========
+    let lineChartInstance = null;
+
+    /**
+     * 신뢰도 추이 데이터를 라인 차트 형식으로 변환
+     */
+    function transformTrendsData(trends) {
+      if (!trends || trends.length === 0) {
+        return null;
+      }
+
+      const labels = trends.map(t => t.date);
+      const beforeData = trends.map(t => (t.avgConfidenceBefore * 100).toFixed(1));
+      const afterData = trends.map(t => (t.avgConfidenceAfter * 100).toFixed(1));
+
+      return { labels, beforeData, afterData };
+    }
+
+    /**
+     * 신뢰도 추이 라인 차트 업데이트
+     */
+    function updateConfidenceLineChart(trends) {
+      if (!trends || trends.length === 0 || typeof Chart === 'undefined') {
+        return;
+      }
+
+      const data = transformTrendsData(trends);
+      if (!data) return;
+
+      const ctx = document.getElementById('confidence-line-chart');
+      if (!ctx) return;
+
+      // 기존 차트 제거
+      if (lineChartInstance) {
+        lineChartInstance.destroy();
+      }
+
+      // 새 차트 생성
+      lineChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.labels,
+          datasets: [
+            {
+              label: '조정 전 신뢰도',
+              data: data.beforeData,
+              borderColor: '#667eea',
+              backgroundColor: 'rgba(102, 126, 234, 0.1)',
+              tension: 0.4,
+              fill: true,
+              pointRadius: 4,
+              pointBackgroundColor: '#667eea',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointHoverRadius: 6,
+              borderWidth: 2
+            },
+            {
+              label: '조정 후 신뢰도',
+              data: data.afterData,
+              borderColor: '#48bb78',
+              backgroundColor: 'rgba(72, 187, 120, 0.1)',
+              tension: 0.4,
+              fill: true,
+              pointRadius: 4,
+              pointBackgroundColor: '#48bb78',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointHoverRadius: 6,
+              borderWidth: 2
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              labels: {
+                font: { size: 12 },
+                padding: 15,
+                usePointStyle: true
+              }
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+              callbacks: {
+                label: (ctx) => {
+                  return `${ctx.dataset.label}: ${ctx.parsed.y}%`;
+                }
+              },
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              padding: 12,
+              titleFont: { size: 12 },
+              bodyFont: { size: 11 },
+              displayColors: true
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              min: 0,
+              max: 100,
+              ticks: {
+                callback: (v) => `${v}%`,
+                font: { size: 11 }
+              },
+              grid: {
+                drawBorder: false,
+                color: 'rgba(0, 0, 0, 0.05)'
+              }
+            },
+            x: {
+              grid: {
+                display: false,
+                drawBorder: false
+              },
+              ticks: {
+                font: { size: 10 }
+              }
+            }
+          }
+        }
+      });
     }
 
     /**
