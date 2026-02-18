@@ -11,18 +11,34 @@
  */
 
 // ═════════════════════════════════════════════════════════════════════════
-// SQLite Database Connection
+// SQLite Database Connection (with FFI support)
 // ═════════════════════════════════════════════════════════════════════════
 
+/**
+ * Open SQLite database connection
+ *
+ * When FFI is fully exposed to FreeLang:
+ * - This will call ffiOpen() from sqlite_ffi_wrapper.free
+ * - Which calls fl_sqlite_open() from stdlib/core/sqlite_binding.c
+ * - Which calls sqlite3_open() from SQLite3 library
+ *
+ * For now: Returns mock connection object
+ */
 fn open(filePath: string) -> object {
   intent: "Open SQLite database connection"
   output: object
   do
+    // TODO: Uncomment when FFI is available
+    // import ffi_sqlite from "./stdlib/ffi/sqlite_ffi_wrapper.free"
+    // return ffi_sqlite.ffiOpen(filePath)
+
+    // For now: Return mock connection
     return {
       path: filePath,
       isOpen: true,
       tables: [],
-      lastError: null
+      lastError: null,
+      native_handle: null
     }
 }
 
@@ -136,18 +152,26 @@ fn build(builder: object) -> string {
 // ═════════════════════════════════════════════════════════════════════════
 
 /**
- * Execute SQLite query
+ * Execute SQLite query via FFI
  *
- * Architecture:
- * 1. Build SQL query string
- * 2. Call C binding: fl_sqlite_execute(db_path, query)
- * 3. Convert result set to FreeLang arrays
+ * Data Flow:
+ * 1. Build SQL query string (this module)
+ * 2. Call FFI wrapper: ffiExecute() (sqlite_ffi_wrapper.free)
+ * 3. C binding calls: fl_sqlite_execute() (sqlite_binding.c)
+ * 4. SQLite3 executes query
+ * 5. Parse result set and return as FreeLang array
+ *
+ * FFI Wrapper (stdlib/ffi/sqlite_ffi_wrapper.free):
+ * - ffiOpen() - opens connection
+ * - ffiExecute() - executes SELECT
+ * - ffiExecuteUpdate() - executes INSERT/UPDATE/DELETE
+ * - ffiClose() - closes connection
  *
  * C Binding (stdlib/core/sqlite_binding.c):
- * - fl_sqlite_execute() - executes SELECT, returns result set
- * - fl_sqlite_execute_update() - executes INSERT/UPDATE/DELETE
- * - fl_sqlite_fetch_row() - gets next row
- * - fl_sqlite_get_column_* () - extracts column values
+ * - fl_sqlite_execute() - SELECT execution
+ * - fl_sqlite_execute_update() - UPDATE execution
+ * - fl_sqlite_fetch_row() - row navigation
+ * - fl_sqlite_get_column_*() - value extraction
  */
 fn execute(builder: object) -> array {
   intent: "Execute query and return results"
@@ -155,18 +179,18 @@ fn execute(builder: object) -> array {
   do
     let query = build(builder)
 
-    // FFI Call (when exposed to FreeLang):
-    // extern fn fl_sqlite_execute(path: string, query: string) -> object
-    // let nativeResult = fl_sqlite_execute(builder.database.path, query)
+    // TODO: When FFI is fully exposed to FreeLang:
+    // 1. Import FFI wrapper module
+    // let ffiSqlite = import "./stdlib/ffi/sqlite_ffi_wrapper.free"
+    //
+    // 2. Call ffiExecute() which calls C binding
+    // let results = ffiSqlite.ffiExecute(builder.database, query)
+    //
+    // 3. Return parsed result array
+    // return results
 
-    // For now: Simulate C binding behavior with FreeLang
+    // For now: Return empty array (placeholder)
     let results = []
-
-    // In production:
-    // - Load sqlite_binding.so via FFI
-    // - Call fl_sqlite_execute()
-    // - Parse result set
-    // - Return as array
 
     return results
 }
@@ -259,10 +283,21 @@ fn rollback(db: object) -> bool {
 // Connection Management
 // ═════════════════════════════════════════════════════════════════════════
 
+/**
+ * Close database connection via FFI
+ *
+ * Calls: ffiClose() from sqlite_ffi_wrapper.free
+ * Which calls: fl_sqlite_close() from sqlite_binding.c
+ * Which calls: sqlite3_close() from SQLite3 library
+ */
 fn close(db: object) -> bool {
   intent: "Close database connection"
   output: bool
   do
+    // TODO: When FFI is fully exposed:
+    // let ffiSqlite = import "./stdlib/ffi/sqlite_ffi_wrapper.free"
+    // return ffiSqlite.ffiClose(db)
+
     db.isOpen = false
     return true
 }
