@@ -42,6 +42,17 @@ export * as csv from './csv';
 export * as yaml from './yaml';
 export * as otp from './otp';
 
+// Re-export Round 4 modules (Phase 5 - Core Infrastructure)
+export * as env from './env';
+export * as path from './path';
+export * as event from './event';
+export * as stream from './stream';
+export * as url from './url';
+export * as validate from './validate';
+export * as archive from './archive';
+export * as ws from './ws';
+export * as grpc from './grpc';
+
 /**
  * Standard Library namespace
  *
@@ -93,6 +104,15 @@ import * as xmlModule from './xml';
 import * as csvModule from './csv';
 import * as yamlModule from './yaml';
 import * as otpModule from './otp';
+import * as envModule from './env';
+import * as pathModule from './path';
+import * as eventModule from './event';
+import * as streamModule from './stream';
+import * as urlModule from './url';
+import * as validateModule from './validate';
+import * as archiveModule from './archive';
+import * as wsModule from './ws';
+import * as grpcModule from './grpc';
 
 const std = {
   // Phase 1 modules
@@ -123,7 +143,17 @@ const std = {
   xml: xmlModule,
   csv: csvModule,
   yaml: yamlModule,
-  otp: otpModule
+  otp: otpModule,
+  // Phase 5 modules (Round 4 - Core Infrastructure)
+  env: envModule,
+  path: pathModule,
+  event: eventModule,
+  stream: streamModule,
+  url: urlModule,
+  validate: validateModule,
+  archive: archiveModule,
+  ws: wsModule,
+  grpc: grpcModule
 };
 
 export default std;
