@@ -6,6 +6,7 @@
 import { ffiRegistry, initializeFFI } from './registry';
 import { initializeCallbackBridge, processCallbacks } from './callback-bridge';
 import { TYPE_BINDINGS, FREELANG_TYPE_MAP } from './type-bindings';
+import { cFunctionCaller } from './c-function-caller';
 
 /**
  * FFI 로더
@@ -73,16 +74,29 @@ export class FFILoader {
           continue;
         }
 
-        // NativeFunctionConfig 구성
+        // NativeFunctionConfig 구성 (실제 C 함수 호출 포함)
         const nativeConfig = {
           name: funcName,
           module: moduleName,
           signature: signature,
           executor: (args: any[]) => {
-            // 실제 C 함수 호출은 FFI 시스템이 처리
-            // 여기서는 placeholder 반환
-            console.log(`📞 Calling FFI function: ${funcName} with args:`, args);
-            return null;
+            // Phase 3.2: 실제 C 함수 호출
+            try {
+              return cFunctionCaller.callCFunction(
+                moduleName,
+                funcName,
+                signature,
+                args
+              );
+            } catch (error) {
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              console.error(
+                `❌ FFI function execution failed: ${funcName}`,
+                errorMsg
+              );
+              // 오류 발생 시 null 반환 (또는 throw)
+              return null;
+            }
           }
         };
 

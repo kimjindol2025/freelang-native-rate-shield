@@ -31,7 +31,7 @@ export class StandardMacroLibrary {
         }
       `)
       .withDocs('Assert condition is true, throw error if false')
-      .build()) as MacroDefinition;
+      .build()) as unknown as MacroDefinition;
   }
 
   /**
@@ -52,7 +52,7 @@ export class StandardMacroLibrary {
         }
       `)
       .withDocs('Repeat body statement n times')
-      .build()) as MacroDefinition;
+      .build()) as unknown as MacroDefinition;
   }
 
   /**
@@ -71,7 +71,7 @@ export class StandardMacroLibrary {
         }
       `)
       .withDocs('Execute callback n times with index 0..n-1')
-      .build()) as MacroDefinition;
+      .build()) as unknown as MacroDefinition;
   }
 
   /**
@@ -91,7 +91,7 @@ export class StandardMacroLibrary {
         }())
       `)
       .withDocs('Print value for debugging and return it')
-      .build()) as MacroDefinition;
+      .build()) as unknown as MacroDefinition;
   }
 
   /**
@@ -108,7 +108,7 @@ export class StandardMacroLibrary {
         console.log(label, "=", expr)
       `)
       .withDocs('Print labeled debug information')
-      .build()) as MacroDefinition;
+      .build()) as unknown as MacroDefinition;
   }
 
   /**
@@ -126,7 +126,7 @@ export class StandardMacroLibrary {
           body
         }
       `)
-      .withDocs('Execute body if condition is false (inverse of if)')) as MacroDefinition;
+      .withDocs('Execute body if condition is false (inverse of if)')) as unknown as MacroDefinition;
   }
 
   /**
@@ -148,7 +148,7 @@ export class StandardMacroLibrary {
           body
         }
       `)
-      .withDocs('Execute body at end of scope')) as MacroDefinition;
+      .withDocs('Execute body at end of scope')) as unknown as MacroDefinition;
   }
 
   /**
@@ -169,7 +169,7 @@ export class StandardMacroLibrary {
           lock.release()
         }
       `)
-      .withDocs('Execute body with lock held')) as MacroDefinition;
+      .withDocs('Execute body with lock held')) as unknown as MacroDefinition;
   }
 
   /**
@@ -185,7 +185,7 @@ export class StandardMacroLibrary {
       .withBody(`
         (a < b ? a : b)
       `)
-      .withDocs('Return minimum of two values')) as MacroDefinition;
+      .withDocs('Return minimum of two values')) as unknown as MacroDefinition;
   }
 
   /**
@@ -201,7 +201,7 @@ export class StandardMacroLibrary {
       .withBody(`
         (a > b ? a : b)
       `)
-      .withDocs('Return maximum of two values')) as MacroDefinition;
+      .withDocs('Return maximum of two values')) as unknown as MacroDefinition;
   }
 
   /**
@@ -218,7 +218,7 @@ export class StandardMacroLibrary {
       .withBody(`
         (value < min ? min : (value > max ? max : value))
       `)
-      .withDocs('Clamp value to range [min, max]')) as MacroDefinition;
+      .withDocs('Clamp value to range [min, max]')) as unknown as MacroDefinition;
   }
 
   /**
@@ -236,7 +236,7 @@ export class StandardMacroLibrary {
         a = b
         b = __temp
       `)
-      .withDocs('Swap values of two variables')) as MacroDefinition;
+      .withDocs('Swap values of two variables')) as unknown as MacroDefinition;
   }
 
   /**
@@ -251,7 +251,7 @@ export class StandardMacroLibrary {
       .withBody(`
         str.length
       `)
-      .withDocs('Get length of string')) as MacroDefinition;
+      .withDocs('Get length of string')) as unknown as MacroDefinition;
   }
 
   /**

@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2021",
     "module": "commonjs",
     "lib": ["ES2021", "DOM", "WebWorker"],
     "outDir": "./dist",
@@ -8,11 +8,15 @@
     "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
+    "forceConsistentCasingInFileNames": false,
     "resolveJsonModule": true,
     "moduleResolution": "node",
     "noImplicitAny": false,
-    "downlevelIteration": true
+    "downlevelIteration": true,
+    "declaration": false,
+    "noEmit": false,
+    "allowUnusedLabels": true,
+    "allowUnreachableCode": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "tests"]

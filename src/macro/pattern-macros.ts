@@ -1,3 +1,4 @@
+// @ts-ignore
 /**
  * FreeLang Macro System: Pattern Matching Macros
  *

@@ -26,6 +26,9 @@ export {
   onTimerTick
 } from './callback-bridge';
 
+// C Function Caller (Phase 3.2: 실제 C 함수 호출)
+export { CFunctionCaller, cFunctionCaller } from './c-function-caller';
+
 // Loader
 export { FFILoader, ffiLoader, setupFFI, handleFFICallbacks } from './loader';
 

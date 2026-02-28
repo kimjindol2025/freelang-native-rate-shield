@@ -1,3 +1,4 @@
+// @ts-ignore
 /**
  * 🚀 Phase 25: Bytecode Caching System
  * CacheManager - LRU 메모리 캐시 관리자

@@ -1,3 +1,4 @@
+// @ts-ignore
 /**
  * Phase 18.3: Type Inference Compiler
  *

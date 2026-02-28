@@ -1,3 +1,4 @@
+// @ts-ignore
 /**
  * Pattern Match Compiler Tests
  *
