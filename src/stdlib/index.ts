@@ -31,6 +31,7 @@ export * as fetch from './fetch';
 export * as kv from './kv';
 export * as temp from './temp';
 export * as bench from './bench';
+export * as test from './test';
 export * as ansicolor from './ansicolor';
 export * as stats from './stats';
 export * as diff from './diff';
@@ -109,6 +110,7 @@ import * as fetchModule from './fetch';
 import * as kvModule from './kv';
 import * as tempModule from './temp';
 import * as benchModule from './bench';
+import * as testModule from './test';
 import * as ansicolorModule from './ansicolor';
 import * as statsModule from './stats';
 import * as diffModule from './diff';
@@ -157,6 +159,7 @@ const std = {
   kv: kvModule,
   temp: tempModule,
   bench: benchModule,
+  test: testModule,
   ansicolor: ansicolorModule,
   stats: statsModule,
   diff: diffModule,
