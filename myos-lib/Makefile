@@ -18,7 +18,7 @@ all: build test
 dirs:
 	@mkdir -p $(BUILD_DIR) $(BIN_DIR)
 
-build: dirs $(BIN_DIR)/test_memory $(BIN_DIR)/test_string
+build: dirs $(BIN_DIR)/test_memory $(BIN_DIR)/test_string $(BIN_DIR)/test_array
 
 $(BUILD_DIR)/syscall.o: $(ARCH_DIR)/syscall.c
 	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
@@ -29,10 +29,16 @@ $(BUILD_DIR)/memory.o: $(SRC_DIR)/memory.c
 $(BUILD_DIR)/string.o: $(SRC_DIR)/string.c
 	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
 
+$(BUILD_DIR)/array.o: $(SRC_DIR)/array.c
+	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
+
 $(BUILD_DIR)/test_memory.o: $(TEST_DIR)/test_memory.c
 	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
 
 $(BUILD_DIR)/test_string.o: $(TEST_DIR)/test_string.c
+	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
+
+$(BUILD_DIR)/test_array.o: $(TEST_DIR)/test_array.c
 	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
 
 $(BIN_DIR)/test_memory: $(BUILD_DIR)/syscall.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/test_memory.o
@@ -41,7 +47,10 @@ $(BIN_DIR)/test_memory: $(BUILD_DIR)/syscall.o $(BUILD_DIR)/memory.o $(BUILD_DIR
 $(BIN_DIR)/test_string: $(BUILD_DIR)/syscall.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/string.o $(BUILD_DIR)/test_string.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-test: $(BIN_DIR)/test_memory $(BIN_DIR)/test_string
+$(BIN_DIR)/test_array: $(BUILD_DIR)/syscall.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/array.o $(BUILD_DIR)/test_array.o
+	$(CC) $(LDFLAGS) -o $@ $^
+
+test: $(BIN_DIR)/test_memory $(BIN_DIR)/test_string $(BIN_DIR)/test_array
 	@echo "╔════════════════════════════════════════╗"
 	@echo "║  MyOS_Lib Phase 8.1 Memory Tests      ║"
 	@echo "╚════════════════════════════════════════╝"
@@ -53,6 +62,12 @@ test: $(BIN_DIR)/test_memory $(BIN_DIR)/test_string
 	@echo "╚════════════════════════════════════════╝"
 	@echo ""
 	@$(BIN_DIR)/test_string
+	@echo ""
+	@echo "╔════════════════════════════════════════╗"
+	@echo "║  MyOS_Lib Phase 8.3 Array Tests       ║"
+	@echo "╚════════════════════════════════════════╝"
+	@echo ""
+	@$(BIN_DIR)/test_array
 	@echo ""
 
 clean:
