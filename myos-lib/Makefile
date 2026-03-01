@@ -18,7 +18,7 @@ all: build test
 dirs:
 	@mkdir -p $(BUILD_DIR) $(BIN_DIR)
 
-build: dirs $(BIN_DIR)/test_memory $(BIN_DIR)/test_string $(BIN_DIR)/test_array $(BIN_DIR)/test_hashmap $(BIN_DIR)/test_io
+build: dirs $(BIN_DIR)/test_memory $(BIN_DIR)/test_string $(BIN_DIR)/test_array $(BIN_DIR)/test_hashmap $(BIN_DIR)/test_io $(BIN_DIR)/test_log
 
 $(BUILD_DIR)/syscall.o: $(ARCH_DIR)/syscall.c
 	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
@@ -56,6 +56,12 @@ $(BUILD_DIR)/io.o: $(SRC_DIR)/io.c
 $(BUILD_DIR)/test_io.o: $(TEST_DIR)/test_io.c
 	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
 
+$(BUILD_DIR)/log.o: $(SRC_DIR)/log.c
+	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
+
+$(BUILD_DIR)/test_log.o: $(TEST_DIR)/test_log.c
+	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
+
 $(BIN_DIR)/test_memory: $(BUILD_DIR)/syscall.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/test_memory.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
@@ -71,7 +77,10 @@ $(BIN_DIR)/test_hashmap: $(BUILD_DIR)/syscall.o $(BUILD_DIR)/memory.o $(BUILD_DI
 $(BIN_DIR)/test_io: $(BUILD_DIR)/syscall.o $(BUILD_DIR)/io.o $(BUILD_DIR)/test_io.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-test: $(BIN_DIR)/test_memory $(BIN_DIR)/test_string $(BIN_DIR)/test_array $(BIN_DIR)/test_hashmap $(BIN_DIR)/test_io
+$(BIN_DIR)/test_log: $(BUILD_DIR)/syscall.o $(BUILD_DIR)/io.o $(BUILD_DIR)/log.o $(BUILD_DIR)/test_log.o
+	$(CC) $(LDFLAGS) -o $@ $^
+
+test: $(BIN_DIR)/test_memory $(BIN_DIR)/test_string $(BIN_DIR)/test_array $(BIN_DIR)/test_hashmap $(BIN_DIR)/test_io $(BIN_DIR)/test_log
 	@echo "╔════════════════════════════════════════╗"
 	@echo "║  MyOS_Lib Phase 8.1 Memory Tests      ║"
 	@echo "╚════════════════════════════════════════╝"
@@ -101,6 +110,12 @@ test: $(BIN_DIR)/test_memory $(BIN_DIR)/test_string $(BIN_DIR)/test_array $(BIN_
 	@echo "╚════════════════════════════════════════╝"
 	@echo ""
 	@$(BIN_DIR)/test_io
+	@echo ""
+	@echo "╔════════════════════════════════════════╗"
+	@echo "║  MyOS_Lib Phase 8.6 Logging Tests     ║"
+	@echo "╚════════════════════════════════════════╝"
+	@echo ""
+	@$(BIN_DIR)/test_log
 	@echo ""
 
 clean:
