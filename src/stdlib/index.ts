@@ -67,6 +67,10 @@ export * as http2 from './http2';
 // Re-export Round 5 modules (Phase 7 - Database)
 export * as db from './db.sqlite';
 
+// Re-export Robot AI modules (Phase 8 - Embedded Systems & Robotics)
+export * as serial from './serial';
+export * as robotai from './robotai';
+
 /**
  * Standard Library namespace
  *
@@ -137,6 +141,8 @@ import * as udpModule from './udp';
 import * as tlsModule from './tls';
 import * as http2Module from './http2';
 import * as dbModule from './db.sqlite';
+import * as serialModule from './serial';
+import * as robotaiModule from './robotai';
 
 const std = {
   // Phase 1 modules
@@ -189,7 +195,10 @@ const std = {
   tls: tlsModule,
   http2: http2Module,
   // Phase 7 modules (Round 5 - Database)
-  db: dbModule
+  db: dbModule,
+  // Phase 8 modules (Round 6 - Embedded Systems & Robotics)
+  serial: serialModule,
+  robotai: robotaiModule
 };
 
 export default std;
