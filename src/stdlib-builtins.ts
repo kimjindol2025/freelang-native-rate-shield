@@ -8,6 +8,7 @@
 import { NativeFunctionRegistry } from './vm/native-function-registry';
 import { SimplePromise } from './runtime/simple-promise';
 import { RegexObject } from './stdlib/regex/regex-impl';
+import { registerMathExtendedFunctions } from './stdlib-math-extended';
 
 /**
  * stdlib 함수들을 NativeFunctionRegistry에 등록
@@ -2037,6 +2038,628 @@ export function registerStdlibFunctions(registry: NativeFunctionRegistry): void 
       return ws.readyState === 1; // OPEN state
     }
   });
+
+  // ────────────────────────────────────────────────────────────
+  // Phase G: WebSocket Server Support
+  // ────────────────────────────────────────────────────────────
+
+  registry.register({
+    name: 'ws_createServer',
+    module: 'websocket',
+    executor: (args) => {
+      const port = Number(args[0]);
+      const WebSocketServer = require('ws').Server;
+      const http = require('http');
+
+      const server = http.createServer();
+      const wss = new WebSocketServer({ server });
+
+      return {
+        __type: 'WebSocketServer',
+        port: port,
+        server: server,
+        wss: wss,
+        clients: new Set(),
+        listeners: {},
+        isListening: false
+      };
+    }
+  });
+
+  registry.register({
+    name: 'ws_listen',
+    module: 'websocket',
+    executor: (args) => {
+      const wsServer = args[0] as any;
+
+      if (wsServer.isListening) return wsServer;
+
+      const wss = wsServer.wss;
+      const server = wsServer.server;
+
+      wss.on('connection', (ws: any) => {
+        const client = {
+          __type: 'WebSocketConnection',
+          id: Math.random().toString(36).substr(2, 9),
+          ws: ws,
+          state: 1, // OPEN
+          username: null
+        };
+
+        wsServer.clients.add(client);
+
+        if (wsServer.listeners['connection']) {
+          try {
+            wsServer.listeners['connection'](client);
+          } catch (e) {
+            console.error('Connection handler error:', e);
+          }
+        }
+
+        ws.on('message', (data: any) => {
+          const message = typeof data === 'string' ? data : data.toString();
+          if (wsServer.listeners['message']) {
+            try {
+              wsServer.listeners['message'](client, message);
+            } catch (e) {
+              console.error('Message handler error:', e);
+            }
+          }
+        });
+
+        ws.on('close', () => {
+          client.state = 3; // CLOSED
+          wsServer.clients.delete(client);
+          if (wsServer.listeners['disconnection']) {
+            try {
+              wsServer.listeners['disconnection'](client);
+            } catch (e) {
+              console.error('Disconnection handler error:', e);
+            }
+          }
+        });
+
+        ws.on('error', (err: any) => {
+          if (wsServer.listeners['error']) {
+            try {
+              wsServer.listeners['error'](err);
+            } catch (e) {
+              console.error('Error handler error:', e);
+            }
+          }
+        });
+      });
+
+      server.listen(wsServer.port, () => {
+        wsServer.isListening = true;
+        if (wsServer.listeners['listening']) {
+          try {
+            wsServer.listeners['listening']();
+          } catch (e) {
+            console.error('Listening handler error:', e);
+          }
+        }
+      });
+
+      return wsServer;
+    }
+  });
+
+  registry.register({
+    name: 'ws_onConnection',
+    module: 'websocket',
+    executor: (args) => {
+      const wsServer = args[0] as any;
+      const callback = args[1] as Function;
+      wsServer.listeners['connection'] = callback;
+      return wsServer;
+    }
+  });
+
+  registry.register({
+    name: 'ws_onDisconnection',
+    module: 'websocket',
+    executor: (args) => {
+      const wsServer = args[0] as any;
+      const callback = args[1] as Function;
+      wsServer.listeners['disconnection'] = callback;
+      return wsServer;
+    }
+  });
+
+  registry.register({
+    name: 'ws_onMessage',
+    module: 'websocket',
+    executor: (args) => {
+      const wsServer = args[0] as any;
+      const callback = args[1] as Function;
+      wsServer.listeners['message'] = callback;
+      return wsServer;
+    }
+  });
+
+  registry.register({
+    name: 'ws_onError',
+    module: 'websocket',
+    executor: (args) => {
+      const wsServer = args[0] as any;
+      const callback = args[1] as Function;
+      wsServer.listeners['error'] = callback;
+      return wsServer;
+    }
+  });
+
+  registry.register({
+    name: 'ws_broadcast',
+    module: 'websocket',
+    executor: (args) => {
+      const wsServer = args[0] as any;
+      const message = String(args[1]);
+
+      for (const client of wsServer.clients) {
+        try {
+          if (client.ws && client.state === 1) {
+            client.ws.send(message);
+          }
+        } catch (e) {
+          console.error('Broadcast error:', e);
+        }
+      }
+
+      return true;
+    }
+  });
+
+  registry.register({
+    name: 'ws_broadcastExcept',
+    module: 'websocket',
+    executor: (args) => {
+      const wsServer = args[0] as any;
+      const excludeClient = args[1] as any;
+      const message = String(args[2]);
+
+      for (const client of wsServer.clients) {
+        if (client.id !== excludeClient.id) {
+          try {
+            if (client.ws && client.state === 1) {
+              client.ws.send(message);
+            }
+          } catch (e) {
+            console.error('Broadcast error:', e);
+          }
+        }
+      }
+
+      return true;
+    }
+  });
+
+  registry.register({
+    name: 'ws_getClients',
+    module: 'websocket',
+    executor: (args) => {
+      const wsServer = args[0] as any;
+      return Array.from(wsServer.clients);
+    }
+  });
+
+  registry.register({
+    name: 'ws_getClientCount',
+    module: 'websocket',
+    executor: (args) => {
+      const wsServer = args[0] as any;
+      return wsServer.clients.size;
+    }
+  });
+
+  registry.register({
+    name: 'ws_send',
+    module: 'websocket',
+    executor: (args) => {
+      const client = args[0] as any;
+      const message = String(args[1]);
+
+      if (client.ws && client.state === 1) {
+        client.ws.send(message);
+        return true;
+      }
+
+      throw new Error('WebSocket is not open');
+    }
+  });
+
+  registry.register({
+    name: 'ws_close',
+    module: 'websocket',
+    executor: (args) => {
+      const clientOrServer = args[0] as any;
+
+      if (clientOrServer.__type === 'WebSocketServer') {
+        clientOrServer.server.close();
+        clientOrServer.clients.clear();
+        clientOrServer.isListening = false;
+      } else if (clientOrServer.__type === 'WebSocketConnection') {
+        clientOrServer.state = 3; // CLOSED
+        if (clientOrServer.ws) {
+          clientOrServer.ws.close();
+        }
+      } else if (clientOrServer.ws) {
+        // Client
+        clientOrServer.state = 3;
+        clientOrServer.ws.close();
+      }
+
+      return clientOrServer;
+    }
+  });
+
+  registry.register({
+    name: 'ws_getState',
+    module: 'websocket',
+    executor: (args) => {
+      const clientOrConn = args[0] as any;
+      const states = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
+      return states[clientOrConn.state || 0];
+    }
+  });
+
+  registry.register({
+    name: 'ws_isOpen',
+    module: 'websocket',
+    executor: (args) => {
+      const clientOrConn = args[0] as any;
+      return clientOrConn.state === 1;
+    }
+  });
+
+  registry.register({
+    name: 'ws_isClosed',
+    module: 'websocket',
+    executor: (args) => {
+      const clientOrConn = args[0] as any;
+      return clientOrConn.state === 3;
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────
+  // Phase H: Lexer 자체호스팅 함수 (30개)
+  // ────────────────────────────────────────────────────────────
+
+  registry.register({
+    name: 'tokenize',
+    module: 'lexer',
+    executor: (args) => {
+      const source = args[0] as string;
+      const lexer = {
+        source,
+        pos: 0,
+        line: 1,
+        col: 1,
+        tokens: [] as any[]
+      };
+
+      function current(): string {
+        if (lexer.pos >= lexer.source.length) return '';
+        return lexer.source[lexer.pos];
+      }
+
+      function peek(offset: number): string {
+        const pos = lexer.pos + offset;
+        if (pos >= lexer.source.length) return '';
+        return lexer.source[pos];
+      }
+
+      function isAlpha(ch: string): boolean {
+        const code = ch.charCodeAt(0);
+        return (code >= 97 && code <= 122) || (code >= 65 && code <= 90) || ch === '_';
+      }
+
+      function isDigit(ch: string): boolean {
+        const code = ch.charCodeAt(0);
+        return code >= 48 && code <= 57;
+      }
+
+      function isAlphaNumeric(ch: string): boolean {
+        return isAlpha(ch) || isDigit(ch);
+      }
+
+      function isWhitespace(ch: string): boolean {
+        return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r';
+      }
+
+      function isOperator(ch: string): boolean {
+        return '+-*/%=!<>&|^'.includes(ch);
+      }
+
+      function isKeyword(word: string): boolean {
+        const keywords = ['fn', 'let', 'const', 'return', 'if', 'else', 'while', 'for',
+          'do', 'break', 'continue', 'match', 'true', 'false', 'null', 'struct', 'enum',
+          'import', 'export', 'async', 'await', 'try', 'catch', 'finally', 'throw', 'in', 'of'];
+        return keywords.includes(word);
+      }
+
+      function addToken(kind: string, value: string, line: number, col: number): void {
+        lexer.tokens.push({
+          kind,
+          value,
+          line,
+          col,
+          length: value.length
+        });
+      }
+
+      function scanNumber(): void {
+        const start = lexer.pos;
+        const line = lexer.line;
+        const col = lexer.col;
+
+        while (isDigit(current())) {
+          lexer.pos++;
+          lexer.col++;
+        }
+
+        if (current() === '.' && isDigit(peek(1))) {
+          lexer.pos++;
+          lexer.col++;
+          while (isDigit(current())) {
+            lexer.pos++;
+            lexer.col++;
+          }
+        }
+
+        const value = lexer.source.substring(start, lexer.pos);
+        addToken('NUMBER', value, line, col);
+      }
+
+      function scanIdentifier(): void {
+        const start = lexer.pos;
+        const line = lexer.line;
+        const col = lexer.col;
+
+        while (isAlphaNumeric(current())) {
+          lexer.pos++;
+          lexer.col++;
+        }
+
+        const value = lexer.source.substring(start, lexer.pos);
+        const kind = isKeyword(value) ? 'KEYWORD' : 'IDENT';
+        addToken(kind, value, line, col);
+      }
+
+      function scanString(quote: string): void {
+        const start = lexer.pos;
+        const line = lexer.line;
+        const col = lexer.col;
+
+        lexer.pos++;
+        lexer.col++;
+
+        while (current() !== quote && current() !== '') {
+          if (current() === '\n') {
+            lexer.line++;
+            lexer.col = 1;
+          } else {
+            lexer.col++;
+          }
+
+          if (current() === '\\' && peek(1) === quote) {
+            lexer.pos += 2;
+            lexer.col += 2;
+          } else {
+            lexer.pos++;
+          }
+        }
+
+        if (current() === quote) {
+          lexer.pos++;
+          lexer.col++;
+        }
+
+        const value = lexer.source.substring(start, lexer.pos);
+        addToken('STRING', value, line, col);
+      }
+
+      function scanLineComment(): void {
+        const start = lexer.pos;
+        const line = lexer.line;
+        const col = lexer.col;
+
+        lexer.pos += 2;
+        lexer.col += 2;
+
+        while (current() !== '\n' && current() !== '') {
+          lexer.pos++;
+          lexer.col++;
+        }
+
+        const value = lexer.source.substring(start, lexer.pos);
+        addToken('COMMENT', value, line, col);
+      }
+
+      function scanBlockComment(): void {
+        const start = lexer.pos;
+        const line = lexer.line;
+        const col = lexer.col;
+
+        lexer.pos += 2;
+        lexer.col += 2;
+
+        while (lexer.pos < lexer.source.length - 1) {
+          if (current() === '*' && peek(1) === '/') {
+            lexer.pos += 2;
+            lexer.col += 2;
+            break;
+          }
+
+          if (current() === '\n') {
+            lexer.line++;
+            lexer.col = 1;
+          } else {
+            lexer.col++;
+          }
+
+          lexer.pos++;
+        }
+
+        const value = lexer.source.substring(start, lexer.pos);
+        addToken('COMMENT', value, line, col);
+      }
+
+      function scanOperator(ch: string): void {
+        const line = lexer.line;
+        const col = lexer.col;
+        let value = ch;
+
+        lexer.pos++;
+        lexer.col++;
+
+        const next = current();
+
+        if ((ch === '=' && next === '=') ||
+            (ch === '!' && next === '=') ||
+            (ch === '<' && next === '=') ||
+            (ch === '>' && next === '=') ||
+            (ch === '&' && next === '&') ||
+            (ch === '|' && next === '|') ||
+            (ch === '+' && next === '+') ||
+            (ch === '-' && next === '-') ||
+            (ch === '+' && next === '=') ||
+            (ch === '-' && next === '=') ||
+            (ch === '*' && next === '=') ||
+            (ch === '/' && next === '=')) {
+          value += next;
+          lexer.pos++;
+          lexer.col++;
+
+          if (ch === '=' && next === '=' && current() === '=') {
+            value += '=';
+            lexer.pos++;
+            lexer.col++;
+          }
+        }
+
+        addToken('OP', value, line, col);
+      }
+
+      function nextToken(): void {
+        while (isWhitespace(current())) {
+          if (current() === '\n') {
+            lexer.line++;
+            lexer.col = 1;
+          } else {
+            lexer.col++;
+          }
+          lexer.pos++;
+        }
+
+        const ch = current();
+
+        if (ch === '') {
+          return;
+        }
+
+        if (ch === '/' && peek(1) === '/') {
+          scanLineComment();
+          return;
+        }
+
+        if (ch === '/' && peek(1) === '*') {
+          scanBlockComment();
+          return;
+        }
+
+        if (isDigit(ch)) {
+          scanNumber();
+          return;
+        }
+
+        if (isAlpha(ch)) {
+          scanIdentifier();
+          return;
+        }
+
+        if (ch === '"' || ch === "'") {
+          scanString(ch);
+          return;
+        }
+
+        if (isOperator(ch)) {
+          scanOperator(ch);
+          return;
+        }
+
+        const line = lexer.line;
+        const col = lexer.col;
+        lexer.pos++;
+        lexer.col++;
+
+        if ('(){}[];:,.?'.includes(ch)) {
+          addToken('PUNCT', ch, line, col);
+        } else {
+          addToken('UNKNOWN', ch, line, col);
+        }
+      }
+
+      while (lexer.pos < lexer.source.length) {
+        nextToken();
+      }
+
+      addToken('EOF', '', lexer.line, lexer.col);
+
+      return lexer.tokens;
+    }
+  });
+
+  registry.register({
+    name: 'filterTokens',
+    module: 'lexer',
+    executor: (args) => {
+      const tokens = args[0] as any[];
+      const kind = args[1] as string;
+      return tokens.filter(t => t.kind === kind);
+    }
+  });
+
+  registry.register({
+    name: 'countTokens',
+    module: 'lexer',
+    executor: (args) => {
+      const tokens = args[0] as any[];
+      const counts: any = {};
+      for (const token of tokens) {
+        counts[token.kind] = (counts[token.kind] || 0) + 1;
+      }
+      return counts;
+    }
+  });
+
+  registry.register({
+    name: 'tokenSequence',
+    module: 'lexer',
+    executor: (args) => {
+      const tokens = args[0] as any[];
+      return tokens
+        .filter(t => t.kind !== 'EOF')
+        .map((t: any) => t.kind)
+        .join(' ');
+    }
+  });
+
+  registry.register({
+    name: 'isValidTokenization',
+    module: 'lexer',
+    executor: (args) => {
+      const tokens = args[0] as any[];
+      if (tokens.length === 0) return false;
+      const lastToken = tokens[tokens.length - 1];
+      return lastToken.kind === 'EOF';
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────
+  // Phase F: 수학/암호/통계 확장 함수 (115개)
+  // ────────────────────────────────────────────────────────────
+  registerMathExtendedFunctions(registry);
 
   // Silent registration (no console output)
 }

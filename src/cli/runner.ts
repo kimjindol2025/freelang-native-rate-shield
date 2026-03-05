@@ -19,6 +19,7 @@ import { optimizeIR } from '../phase-14-llvm';
 import { registerStdlibFunctions } from '../stdlib-builtins';
 import { registerSQLiteNativeFunctions } from '../stdlib/sqlite-native';
 import { registerTCPFunctions } from '../stdlib/net/tcp-native';
+import { registerSystemExtendedFunctions } from '../stdlib-system-extended';
 
 export interface RunResult {
   success: boolean;
@@ -47,6 +48,8 @@ export class ProgramRunner {
     registerSQLiteNativeFunctions(this.vm.getNativeFunctionRegistry());
     // Phase 3 Level 3: Register TCP native functions (net module)
     registerTCPFunctions(this.vm.getNativeFunctionRegistry());
+    // Phase C: Register system extended functions (event, logging, scheduler, cache, validation, config)
+    registerSystemExtendedFunctions(this.vm.getNativeFunctionRegistry());
   }
 
   /**

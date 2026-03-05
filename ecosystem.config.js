@@ -29,8 +29,8 @@ module.exports = {
     max_memory_restart: '512M',
     
     // Logging
-    output: '/var/log/pm2/freelang-v2-out.log',
-    error: '/var/log/pm2/freelang-v2-error.log',
+    output: '/home/kimjin/.pm2/logs/freelang-v2-out.log',
+    error: '/home/kimjin/.pm2/logs/freelang-v2-error.log',
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
     
     // Restart Policy

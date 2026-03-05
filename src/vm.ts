@@ -13,6 +13,7 @@ import { NativeFunctionRegistry, NativeFunctionConfig } from './vm/native-functi
 import { IRGenerator } from './codegen/ir-generator';
 import { registerStdlibFunctions } from './stdlib-builtins';
 import { registerTCPFunctions } from './stdlib/net/tcp-native';
+import { registerSystemExtendedFunctions } from './stdlib-system-extended';
 import { trackFunctionCall, isHotFunction, generateHotspotReport } from './phase-jit/hotspot-detector';
 import { SimplePromise } from './runtime/simple-promise';
 
@@ -49,6 +50,8 @@ export class VM {
     registerStdlibFunctions(this.nativeFunctionRegistry);
     // Phase 3 Level 3: Register TCP native functions
     registerTCPFunctions(this.nativeFunctionRegistry);
+    // Phase C: Register system extended functions (event, logging, scheduler, cache, validation, config)
+    registerSystemExtendedFunctions(this.nativeFunctionRegistry);
     // Phase 26: Set VM reference for higher-order functions
     this.nativeFunctionRegistry.setVM(this);
   }

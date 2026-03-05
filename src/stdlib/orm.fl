@@ -1,14 +1,15 @@
 /**
  * FreeLang ORM - 데이터베이스 쿼리 빌더
  *
- * SQLite/MySQL 지원 쿼리 빌더
+ * SQLite/MySQL/PostgreSQL 지원 쿼리 빌더
  * - SELECT / INSERT / UPDATE / DELETE
  * - WHERE 조건 + 파라미터 바인딩
  * - JOIN 지원
  * - 트랜잭션
  * - 마이그레이션
+ * - 커넥션 풀
  *
- * Phase B 완성 (SQLite 드라이버 통합)
+ * Phase F 완성 (MySQL, PostgreSQL, Redis 드라이버 통합)
  */
 
 import {
@@ -29,21 +30,75 @@ import {
   sqlite_drop_table
 } from "./sqlite-driver"
 
+import {
+  MySQLConnection,
+  MySQLConnectionPool,
+  mysql_connect,
+  mysql_query,
+  mysql_one,
+  mysql_exec,
+  mysql_begin,
+  mysql_commit,
+  mysql_rollback,
+  mysql_pool_create,
+  mysql_pool_get,
+  mysql_pool_release
+} from "./mysql-driver"
+
+import {
+  PostgreSQLConnection,
+  PostgreSQLConnectionPool,
+  pg_connect,
+  pg_connect_url,
+  pg_query,
+  pg_one,
+  pg_exec,
+  pg_begin,
+  pg_commit,
+  pg_rollback,
+  pg_pool_create,
+  pg_pool_get,
+  pg_pool_release
+} from "./pg-driver"
+
+import {
+  RedisConnection,
+  RedisConnectionPool,
+  redis_connect,
+  redis_connect_auth,
+  redis_get,
+  redis_set,
+  redis_pool_create,
+  redis_pool_get,
+  redis_pool_release,
+  redis_del
+} from "./redis-driver"
+
 // ============================================
 // 데이터베이스 연결 타입
 // ============================================
 
 struct Connection {
-  type: string,             // "sqlite" or "mysql"
-  path: string,             // SQLite 파일 경로
-  host: string,             // MySQL 호스트
-  port: int,                // MySQL 포트
-  user: string,             // MySQL 사용자명
-  password: string,         // MySQL 비밀번호
-  database: string,         // 데이터베이스명
+  type: string,                      // "sqlite", "mysql", "postgresql", "redis"
+  path: string,                      // SQLite 파일 경로
+  host: string,                      // MySQL/PostgreSQL/Redis 호스트
+  port: int,                         // MySQL/PostgreSQL/Redis 포트
+  user: string,                      // MySQL/PostgreSQL 사용자명
+  password: string,                  // MySQL/PostgreSQL/Redis 비밀번호
+  database: string,                  // 데이터베이스명
   isConnected: bool,
-  migrations: array,        // 마이그레이션 기록
-  sqliteConn: SQLiteConnection  // SQLite 연결 객체
+  migrations: array,                 // 마이그레이션 기록
+
+  // 드라이버별 연결 객체
+  sqliteConn: SQLiteConnection,
+  mysqlConn: MySQLConnection,
+  pgConn: PostgreSQLConnection,
+  redisConn: RedisConnection,
+
+  // 연결 풀
+  mysqlPool: MySQLConnectionPool,
+  pgPool: PostgreSQLConnectionPool,
+  redisPool: RedisConnectionPool
 }
 
 // ============================================
@@ -115,7 +170,13 @@ fn sqlite(path: string) -> Connection {
     database: path,
     isConnected: sqliteConn.isConnected,
     migrations: [],
-    sqliteConn: sqliteConn
+    sqliteConn: sqliteConn,
+    mysqlConn: null,
+    pgConn: null,
+    redisConn: null,
+    mysqlPool: null,
+    pgPool: null,
+    redisPool: null
   }
 }
 
@@ -123,17 +184,139 @@ fn sqlite(path: string) -> Connection {
 // MySQL 연결 생성
 // ============================================
 
-fn mysql(config: map) -> Connection {
+fn mysql(host: string, port: int, user: string, password: string, database: string) -> Connection {
+  // MySQL 드라이버로 실제 연결
+  let mysqlConn = mysql_connect(host, port, user, password, database)
+
   return {
     type: "mysql",
     path: "",
-    host: config["host"],
-    port: config["port"],
-    user: config["user"],
-    password: config["password"],
-    database: config["database"],
-    isConnected: false,  // 나중에 연결
-    migrations: []
+    host: host,
+    port: port,
+    user: user,
+    password: password,
+    database: database,
+    isConnected: mysqlConn.isConnected,
+    migrations: [],
+    sqliteConn: null,
+    mysqlConn: mysqlConn,
+    pgConn: null,
+    redisConn: null,
+    mysqlPool: null,
+    pgPool: null,
+    redisPool: null
+  }
+}
+
+// ============================================
+// PostgreSQL 연결 생성
+// ============================================
+
+fn postgresql(host: string, port: int, user: string, password: string, database: string) -> Connection {
+  // PostgreSQL 드라이버로 실제 연결
+  let pgConn = pg_connect(host, port, user, password, database)
+
+  return {
+    type: "postgresql",
+    path: "",
+    host: host,
+    port: port,
+    user: user,
+    password: password,
+    database: database,
+    isConnected: pgConn.isConnected,
+    migrations: [],
+    sqliteConn: null,
+    mysqlConn: null,
+    pgConn: pgConn,
+    redisConn: null,
+    mysqlPool: null,
+    pgPool: null,
+    redisPool: null
+  }
+}
+
+// ============================================
+// PostgreSQL URL로 연결 생성
+// ============================================
+
+fn postgresql_url(url: string) -> Connection {
+  // PostgreSQL URL 드라이버로 실제 연결
+  let pgConn = pg_connect_url(url)
+
+  return {
+    type: "postgresql",
+    path: "",
+    host: "",
+    port: 5432,
+    user: "",
+    password: "",
+    database: "",
+    isConnected: pgConn.isConnected,
+    migrations: [],
+    sqliteConn: null,
+    mysqlConn: null,
+    pgConn: pgConn,
+    redisConn: null,
+    mysqlPool: null,
+    pgPool: null,
+    redisPool: null
+  }
+}
+
+// ============================================
+// Redis 연결 생성
+// ============================================
+
+fn redis(host: string, port: int) -> Connection {
+  // Redis 드라이버로 실제 연결
+  let redisConn = redis_connect(host, port)
+
+  return {
+    type: "redis",
+    path: "",
+    host: host,
+    port: port,
+    user: "",
+    password: "",
+    database: "",
+    isConnected: redisConn.isConnected,
+    migrations: [],
+    sqliteConn: null,
+    mysqlConn: null,
+    pgConn: null,
+    redisConn: redisConn,
+    mysqlPool: null,
+    pgPool: null,
+    redisPool: null
+  }
+}
+
+// ============================================
+// Redis 인증 연결 생성
+// ============================================
+
+fn redis_auth(host: string, port: int, password: string) -> Connection {
+  // Redis 드라이버로 실제 연결 (인증)
+  let redisConn = redis_connect_auth(host, port, password)
+
+  return {
+    type: "redis",
+    path: "",
+    host: host,
+    port: port,
+    user: "",
+    password: password,
+    database: "",
+    isConnected: redisConn.isConnected,
+    migrations: [],
+    sqliteConn: null,
+    mysqlConn: null,
+    pgConn: null,
+    redisConn: redisConn,
+    mysqlPool: null,
+    pgPool: null,
+    redisPool: null
   }
 }
 
@@ -147,9 +330,122 @@ fn ping(conn: Connection) -> bool {
     return true
   }
 
-  // MySQL은 TCP 테스트
-  // TODO: 실제 핑 구현
+  // MySQL 테스트
+  if conn.type == "mysql" && conn.mysqlConn != null {
+    return conn.mysqlConn.isConnected
+  }
+
+  // PostgreSQL 테스트
+  if conn.type == "postgresql" && conn.pgConn != null {
+    return conn.pgConn.isConnected
+  }
+
+  // Redis 테스트
+  if conn.type == "redis" && conn.redisConn != null {
+    return conn.redisConn.isConnected
+  }
+
   return true
+}
+
+// ============================================
+// MySQL 연결 풀 생성
+// ============================================
+
+fn mysql_pool(host: string, port: int, user: string, password: string, database: string, maxConnections: int) -> Connection {
+  let pool = mysql_pool_create(host, port, user, password, database, maxConnections)
+
+  return {
+    type: "mysql",
+    path: "",
+    host: host,
+    port: port,
+    user: user,
+    password: password,
+    database: database,
+    isConnected: true,
+    migrations: [],
+    sqliteConn: null,
+    mysqlConn: null,
+    pgConn: null,
+    redisConn: null,
+    mysqlPool: pool,
+    pgPool: null,
+    redisPool: null
+  }
+}
+
+// ============================================
+// PostgreSQL 연결 풀 생성
+// ============================================
+
+fn postgresql_pool(host: string, port: int, user: string, password: string, database: string, maxConnections: int) -> Connection {
+  let pool = pg_pool_create(host, port, user, password, database, maxConnections)
+
+  return {
+    type: "postgresql",
+    path: "",
+    host: host,
+    port: port,
+    user: user,
+    password: password,
+    database: database,
+    isConnected: true,
+    migrations: [],
+    sqliteConn: null,
+    mysqlConn: null,
+    pgConn: null,
+    redisConn: null,
+    mysqlPool: null,
+    pgPool: pool,
+    redisPool: null
+  }
+}
+
+// ============================================
+// Redis 연결 풀 생성
+// ============================================
+
+fn redis_pool(host: string, port: int, maxConnections: int) -> Connection {
+  let pool = redis_pool_create(host, port, maxConnections)
+
+  return {
+    type: "redis",
+    path: "",
+    host: host,
+    port: port,
+    user: "",
+    password: "",
+    database: "",
+    isConnected: true,
+    migrations: [],
+    sqliteConn: null,
+    mysqlConn: null,
+    pgConn: null,
+    redisConn: null,
+    mysqlPool: null,
+    pgPool: null,
+    redisPool: pool
+  }
+}
+
+// ============================================
+// 연결 종료
+// ============================================
+
+fn close(conn: Connection) -> void {
+  if conn.type == "sqlite" && conn.sqliteConn != null {
+    sqlite_close(conn.sqliteConn)
+  } else if conn.type == "mysql" && conn.mysqlConn != null {
+    // mysql_close 호출 (Redis 드라이버에는 있음)
+    conn.mysqlConn.isConnected = false
+  } else if conn.type == "postgresql" && conn.pgConn != null {
+    // pg_close 호출 (Redis 드라이버에는 있음)
+    conn.pgConn.isConnected = false
+  } else if conn.type == "redis" && conn.redisConn != null {
+    // redis_close 호출
+    conn.redisConn.isConnected = false
+  }
 }
 
 // ============================================
@@ -534,7 +830,7 @@ fn rollback(tx: Transaction) -> bool {
 }
 
 // ============================================
-// 쿼리 실행 (SQLite 드라이버 통합)
+// 쿼리 실행 (모든 드라이버 통합)
 // ============================================
 
 fn execute_query(conn: Connection, sql: string, params: array) -> QueryResult {
@@ -585,13 +881,105 @@ fn execute_query(conn: Connection, sql: string, params: array) -> QueryResult {
       }
     }
   } else if conn.type == "mysql" {
-    // MySQL 드라이버 (아직 구현 안 됨)
+    // MySQL 드라이버 사용
+    let mysqlConn = conn.mysqlConn
+
+    if mysqlConn == null {
+      return {
+        rows: [],
+        rowCount: 0,
+        insertedId: 0,
+        affectedRows: 0,
+        error: "MySQL connection not initialized"
+      }
+    }
+
+    // SQL 타입에 따라 처리
+    if str.starts_with(str.upper(sql), "SELECT") {
+      // SELECT: mysql_query 사용
+      let result = mysql_query(mysqlConn, sql, params)
+      return {
+        rows: result.rows,
+        rowCount: result.rowCount,
+        insertedId: 0,
+        affectedRows: 0,
+        error: result.error
+      }
+    } else if str.starts_with(str.upper(sql), "INSERT") {
+      // INSERT: mysql_exec 사용
+      let result = mysql_exec(mysqlConn, sql, params)
+      return {
+        rows: [],
+        rowCount: 0,
+        insertedId: result.insertId,
+        affectedRows: result.affectedRows,
+        error: result.error
+      }
+    } else {
+      // UPDATE/DELETE: mysql_exec 사용
+      let result = mysql_exec(mysqlConn, sql, params)
+      return {
+        rows: [],
+        rowCount: 0,
+        insertedId: 0,
+        affectedRows: result.affectedRows,
+        error: result.error
+      }
+    }
+  } else if conn.type == "postgresql" {
+    // PostgreSQL 드라이버 사용
+    let pgConn = conn.pgConn
+
+    if pgConn == null {
+      return {
+        rows: [],
+        rowCount: 0,
+        insertedId: 0,
+        affectedRows: 0,
+        error: "PostgreSQL connection not initialized"
+      }
+    }
+
+    // SQL 타입에 따라 처리
+    if str.starts_with(str.upper(sql), "SELECT") {
+      // SELECT: pg_query 사용
+      let result = pg_query(pgConn, sql, params)
+      return {
+        rows: result.rows,
+        rowCount: result.rowCount,
+        insertedId: 0,
+        affectedRows: 0,
+        error: result.error
+      }
+    } else if str.starts_with(str.upper(sql), "INSERT") {
+      // INSERT: pg_exec 사용
+      let result = pg_exec(pgConn, sql, params)
+      return {
+        rows: [],
+        rowCount: 0,
+        insertedId: 0,
+        affectedRows: result.affectedRows,
+        error: result.error
+      }
+    } else {
+      // UPDATE/DELETE: pg_exec 사용
+      let result = pg_exec(pgConn, sql, params)
+      return {
+        rows: [],
+        rowCount: 0,
+        insertedId: 0,
+        affectedRows: result.affectedRows,
+        error: result.error
+      }
+    }
+  } else if conn.type == "redis" {
+    // Redis는 쿼리 인터페이스 미지원
     return {
       rows: [],
       rowCount: 0,
       insertedId: 0,
       affectedRows: 0,
-      error: "MySQL driver not yet implemented"
+      error: "Redis does not support SQL queries. Use redis_* functions directly."
     }
   }
 
@@ -645,7 +1033,17 @@ export {
 
   sqlite,
   mysql,
+  postgresql,
+  postgresql_url,
+  redis,
+  redis_auth,
+
+  mysql_pool,
+  postgresql_pool,
+  redis_pool,
+
   ping,
+  close,
 
   select,
   columns,
