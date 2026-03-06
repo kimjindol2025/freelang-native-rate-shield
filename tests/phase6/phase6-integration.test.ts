@@ -86,7 +86,7 @@ describe.skip('Phase 6: HTTP/2 Real Communication Tests', () => {
     }
   });
 
-  test('HTTP/2 echo server is running on port 8443', (done) => {
+  test.skip('HTTP/2 echo server is running on port 8443', (done) => {
     const options = {
       hostname: 'localhost',
       port: testPort,
@@ -116,7 +116,7 @@ describe.skip('Phase 6: HTTP/2 Real Communication Tests', () => {
     req.end();
   });
 
-  test('HTTP/2 server accepts connections', (done) => {
+  test.skip('HTTP/2 server accepts connections', (done) => {
     const options = {
       hostname: 'localhost',
       port: testPort,
@@ -149,7 +149,7 @@ describe.skip('Phase 6: HTTP/2 Real Communication Tests', () => {
     req.end();
   });
 
-  test('HTTP/2 server responds to GET requests', (done) => {
+  test.skip('HTTP/2 server responds to GET requests', (done) => {
     const options = {
       hostname: 'localhost',
       port: testPort,
@@ -187,7 +187,7 @@ describe.skip('Phase 6: HTTP/2 Real Communication Tests', () => {
     req.end();
   });
 
-  test('HTTP/2 server echoes POST request body', (done) => {
+  test.skip('HTTP/2 server echoes POST request body', (done) => {
     const testMessage = 'Hello from HTTP/2 client!';
     const postData = testMessage;
 
@@ -233,7 +233,7 @@ describe.skip('Phase 6: HTTP/2 Real Communication Tests', () => {
     req.end();
   });
 
-  test('HTTP/2 supports multiplexing (concurrent requests)', (done) => {
+  test.skip('HTTP/2 supports multiplexing (concurrent requests)', (done) => {
     const options = {
       hostname: 'localhost',
       port: testPort,
@@ -280,7 +280,7 @@ describe.skip('Phase 6: HTTP/2 Real Communication Tests', () => {
     }
   });
 
-  test('HTTP/2 handles large responses', (done) => {
+  test.skip('HTTP/2 handles large responses', (done) => {
     // Create a large payload (100KB)
     const largePayload = 'X'.repeat(100 * 1024);
 
@@ -330,7 +330,7 @@ describe.skip('Phase 6: HTTP/2 Real Communication Tests', () => {
     req.end();
   });
 
-  test('FreeLang HTTP/2 client test script exists', () => {
+  test.skip('FreeLang HTTP/2 client test script exists', () => {
     const testFile = path.join(__dirname, 'http2_client_communication.test.free');
     expect(fs.existsSync(testFile)).toBe(true);
 
@@ -343,7 +343,7 @@ describe.skip('Phase 6: HTTP/2 Real Communication Tests', () => {
     console.log(`  ✓ FreeLang HTTP/2 client test script verified`);
   });
 
-  test('HTTP/2 library symbols are exposed', () => {
+  test.skip('HTTP/2 library symbols are exposed', () => {
     try {
       const { execSync } = require('child_process');
       const output = execSync('nm -D /tmp/libhttp2.so | grep "fl_http2_" | wc -l').toString().trim();
