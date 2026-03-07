@@ -419,16 +419,32 @@ export class Parser {
     let lintConfig: LintConfig | undefined;
 
     // Native-Linter: 파일 최상단 @lint 어노테이션 파싱
-    if (this.check(TokenType.AT)) {
+    // Self-Monitoring Kernel: @monitor 등 기타 어노테이션도 여기서 수집
+    const topLevelAnnotations: string[] = [];
+    while (this.check(TokenType.AT)) {
       this.advance(); // '@' 소비
       if (this.check(TokenType.IDENT) && this.current().value === 'lint') {
         lintConfig = this.parseLintAnnotation();
         if (process.env.DEBUG_PARSER) {
           console.log('[PARSER] @lint annotation parsed:', JSON.stringify(lintConfig));
         }
+      } else if (this.check(TokenType.IDENT)) {
+        // @monitor, @api 등 → 이름 수집 후 다음 fn에 적용
+        const annotName = this.advance().value;
+        topLevelAnnotations.push(annotName);
+        // @monitor(level: .detailed) 형태 파라미터 스킵
+        if (this.check(TokenType.LPAREN)) {
+          this.advance();
+          let depth = 1;
+          while (depth > 0 && !this.check(TokenType.EOF)) {
+            if (this.check(TokenType.LPAREN)) depth++;
+            else if (this.check(TokenType.RPAREN)) depth--;
+            this.advance();
+          }
+        }
       } else {
-        // @lint 아닌 다른 어노테이션 → 되돌리기 불가, '@' 스킵 처리
-        // (기존 @minimal 처리는 parse()에서 담당하므로 여기선 무시)
+        // '@' 뒤에 IDENT가 없는 경우 → 무시
+        break;
       }
     }
 

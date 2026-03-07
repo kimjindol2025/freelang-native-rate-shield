@@ -5,6 +5,7 @@
 ![Tests](https://img.shields.io/badge/tests-176%2F176%20%E2%9C%85-green.svg)
 ![Dependencies](https://img.shields.io/badge/external%20deps-0%25-brightgreen.svg)
 ![Self-Hosting](https://img.shields.io/badge/self--hosting-compiler.free-orange.svg)
+![Graph](https://img.shields.io/badge/GraphQL-Native%20(Apollo%20%EB%8C%80%EC%B2%B4)-blueviolet.svg)
 
 FreeLang은 **자기 자신의 소스를 컴파일 및 린트할 수 있는** 제로 외부 의존성 AI 기반 프로그래밍 언어입니다.
 Node.js / TypeScript 기반으로 구현되며, ESLint·Apollo Server·PM2 등 주요 외부 패키지를 모두 내부 엔진으로 대체했습니다.
@@ -98,21 +99,56 @@ src/linter/
 
 ### 2. Native-Graph — Apollo Server 완전 대체
 
-외부 GraphQL 라이브러리 없이 FreeLang 내장 GraphQL 엔진.
+외부 GraphQL 라이브러리 없이 FreeLang 내장 GraphQL 엔진. Node.js `http` 모듈만 사용.
 
-```free
-@schema("
-  type Query {
-    user(id: Int): User
-  }
-  type User {
-    id: Int
-    name: String
-  }
-")
-fn resolve_user(id: i64) -> map {
-  return db_one("SELECT * FROM users WHERE id = ?", id)
-}
+**신규 키워드**: `schema` · `query` · `mutation` · `resolver`
+
+**5개 빌트인 함수**:
+
+```
+graph_schema_define(typeName, fieldsJson)  → 타입 레지스트리 정적 등록
+graph_resolver_add(typeName, field, fn)    → 리졸버 디스패치 테이블 바인딩
+graph_server_start(port)                   → POST /graphql + 내장 HTML UI
+graph_execute(gqlString)                   → 서버 없이 GQL 직접 실행 (테스트용)
+graph_server_stop(port)                    → 서버 종료
+```
+
+**실제 사용 예시 (FreeLang 빌트인)**:
+
+```js
+// 1. 스키마 정의 (정적 타입 레지스트리)
+graph_schema_define("Query", '[{"name":"user","type":"User"}]')
+graph_schema_define("User",  '[{"name":"id","type":"Int"},{"name":"name","type":"String"}]')
+
+// 2. 리졸버 등록 (디스패치 테이블 바인딩)
+graph_resolver_add("Query", "user", fn(root, args) {
+  return db_one("SELECT * FROM users WHERE id = ?", map_get(args, "id"))
+})
+
+// 3. 서버 기동 (POST /graphql + GET /graphql HTML UI)
+graph_server_start(4000)
+```
+
+**쿼리 실행**:
+
+```bash
+# HTTP POST
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{ user(id: 1) { id name } }"}'
+# → {"data":{"user":{"id":1,"name":"Alice"}}}
+
+# 단위 테스트 (서버 없이)
+let result = graph_execute('{ user(id: 1) { id name } }')
+```
+
+**내장 GraphiQL-lite UI**: `GET http://localhost:4000/graphql` → 브라우저에서 스키마 조회 + 쿼리 실행 (외부 CDN 0%)
+
+**검증 결과** (test-native-graph.js 실제 실행):
+```
+[3] 검증 통과: id=1, name=Alice
+[4] HTTP 응답 200: {"data":{"user":{"id":2,"name":"Bob"}}}
+[4] HTTP 검증 통과: id=2, name=Bob
 ```
 
 ### 3. MOSS-Compressor — zlib 완전 대체
@@ -186,7 +222,9 @@ src/
 │   ├── parser.free
 │   └── lexer.free
 ├── vm.ts               # 가상 머신
-└── stdlib-builtins.ts  # 빌트인 함수 1,333+개
+└── stdlib-builtins.ts  # 빌트인 함수 1,340+개
+                        #   └── Native-Graph: graph_schema_define/resolver_add/
+                        #       graph_server_start/graph_execute/graph_server_stop
 ```
 
 ---
@@ -266,6 +304,7 @@ fn main() {
 시간:       date_now, date_format, sleep, timestamp
 압축:       compress_deflate, decompress_inflate, compress_gzip
 모니터링:   @monitor, insight_cpu, insight_mem, insight_rps
+그래프:     graph_schema_define, graph_resolver_add, graph_server_start, graph_execute
 ```
 
 ---
@@ -338,10 +377,11 @@ v2.7.0  Native-Linter (ESLint 대체), Native-Graph (Apollo 대체),
 
 ```
 총 코드:          15,600+ 줄
-표준 함수:        1,333+ 개
+표준 함수:        1,340+ 개  (+5 Native-Graph, +2 Insight)
+언어 키워드:      44개  (+4: schema/query/mutation/resolver)
 린터 규칙:        3개 (no_unused / shadowing_check / strict_pointers)
-대체된 npm 패키지: 8개
-커밋:             460+개
+대체된 npm 패키지: 8개 (ESLint/Apollo/PM2/Swagger/nodemailer/zlib/sharp/helmet)
+커밋:             470+개
 외부 의존성:      0%
 ```
 
