@@ -81,7 +81,8 @@ fn createApp() -> App {
     port: 0,
     isListening: false,
     errorHandler: fn(err: any, req: Request, res: Response) {
-      res.status(500).json({ error: "Internal Server Error" })
+      res.status = 500
+      res.jsonData = { error: "Internal Server Error" }
     }
   }
 }
@@ -92,16 +93,16 @@ fn createApp() -> App {
 fn parsePathParams(pattern: string, actualPath: string) -> map {
   let params = {}
 
-  # 간단한 구현: /users/:id 패턴 처리
+  # Simple implementation: handle /users/:id pattern
   let patternParts = str.split(pattern, "/")
   let pathParts = str.split(actualPath, "/")
 
   let i = 0
-  while i < patternParts.length {
+  while (i < arr.length(patternParts)) {
     let part = patternParts[i]
-    if str.starts_with(part, ":") {
-      let paramName = str.substring(part, 1)  # : 제거
-      if i < pathParts.length {
+    if (str.starts_with(part, ":")) {
+      let paramName = str.substring(part, 1)
+      if (i < arr.length(pathParts)) {
         params[paramName] = pathParts[i]
       }
     }
@@ -115,23 +116,23 @@ fn parsePathParams(pattern: string, actualPath: string) -> map {
 # 경로 매칭 (와일드카드 지원)
 # ============================================
 fn matchPath(pattern: string, actualPath: string) -> bool {
-  if pattern == actualPath {
+  if (pattern == actualPath) {
     return true
   }
 
   let patternParts = str.split(pattern, "/")
   let pathParts = str.split(actualPath, "/")
 
-  if arr.length(patternParts) != arr.length(pathParts) {
+  if (arr.length(patternParts) != arr.length(pathParts)) {
     return false
   }
 
   let i = 0
-  while i < arr.length(patternParts) {
+  while (i < arr.length(patternParts)) {
     let pp = patternParts[i]
     let ap = pathParts[i]
 
-    if pp != "*" && !str.starts_with(pp, ":") && pp != ap {
+    if (pp != "*" && !str.starts_with(pp, ":") && pp != ap) {
       return false
     }
 
@@ -214,7 +215,7 @@ fn errorHandler(app: App, handler: fn(any, Request, Response) -> void) -> App {
 # 요청 처리 (라우팅 및 미들웨어)
 # ============================================
 fn handleRequest(app: App, req: Request) -> Response {
-  let res: Response = {
+  let res = {
     status: 200,
     headers: { "Content-Type": "application/json" },
     body: "",
@@ -222,30 +223,30 @@ fn handleRequest(app: App, req: Request) -> Response {
     isSent: false
   }
 
-  # 1. 미들웨어 실행
+  # 1. Run middlewares
   let i = 0
-  while i < arr.length(app.middlewares) {
+  while (i < arr.length(app.middlewares)) {
     let middleware = app.middlewares[i]
-    if !middleware(req, res) {
-      # 미들웨어가 요청을 중단했으면 여기서 반환
-      if res.isSent {
+    if (!middleware(req, res)) {
+      # Stop processing if middleware halts request
+      if (res.isSent) {
         return res
       }
     }
     i = i + 1
   }
 
-  # 2. 라우트 찾기
+  # 2. Find matching route
   let routeFound = false
   let j = 0
-  while j < arr.length(app.routes) {
+  while (j < arr.length(app.routes)) {
     let route = app.routes[j]
 
-    if route.method == req.method && matchPath(route.path, req.path) {
-      # 경로 파라미터 추출
+    if (route.method == req.method && matchPath(route.path, req.path)) {
+      # Extract path parameters
       req.params = parsePathParams(route.path, req.path)
 
-      # 3. 핸들러 실행
+      # 3. Execute handler
       route.handler(req, res)
       routeFound = true
       break
@@ -254,14 +255,14 @@ fn handleRequest(app: App, req: Request) -> Response {
     j = j + 1
   }
 
-  # 4. 라우트를 찾지 못했으면 404 반환
-  if !routeFound {
+  # 4. Return 404 if route not found
+  if (!routeFound) {
     res.status = 404
     res.jsonData = { error: "Not Found" }
   }
 
-  # 5. jsonData가 설정되었으면 body로 변환
-  if res.jsonData != null {
+  # 5. Convert jsonData to body if set
+  if (res.jsonData != null) {
     res.body = json.stringify(res.jsonData)
   }
 
@@ -338,9 +339,9 @@ fn send(res: Response, code: int) -> Response {
 # Request 헬퍼 함수
 # ============================================
 
-# body 파싱 (JSON)
+# Parse body as JSON
 fn parseJson(req: Request) -> any {
-  if req.body != "" {
+  if (req.body != "") {
     req.parsedBody = json.parse(req.body)
   }
   return req.parsedBody
@@ -377,10 +378,10 @@ fn listen(app: App, port: int) -> void {
   println("[Express-Compat] Routes registered:", arr.length(app.routes))
   println("[Express-Compat] Middlewares:", arr.length(app.middlewares))
 
-  # 실제 HTTP 서버 시작 (내부 VM이 처리)
-  # 간단한 예시로 로그만 출력
+  # Start actual HTTP server (handled by internal VM)
+  # For now, just log routes
   let i = 0
-  while i < arr.length(app.routes) {
+  while (i < arr.length(app.routes)) {
     let route = app.routes[i]
     println("  ", route.method, route.path)
     i = i + 1
@@ -399,11 +400,11 @@ fn close(app: App) -> void {
 # 편의 함수들
 # ============================================
 
-# 정적 파일 서빙
+# Serve static files
 fn serveStatic(app: App, path: string, rootDir: string) -> App {
   return get(app, path, fn(req: Request, res: Response) {
     let filePath = rootDir + req.path
-    respondFile(res, filePath)
+    sendFile(res, filePath)
   })
 }
 

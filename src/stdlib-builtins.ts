@@ -351,27 +351,67 @@ export function registerStdlibFunctions(registry: NativeFunctionRegistry): void 
   registry.register({
     name: 'map_set',
     module: 'map',
+    signature: {
+      name: 'map_set',
+      returnType: 'object',
+      parameters: [
+        { name: 'map', type: 'object' },
+        { name: 'key', type: 'string' },
+        { name: 'value', type: 'any' }
+      ],
+      category: 'event'
+    },
     executor: (args) => {
-      (args[0] as Map<any, any>).set(args[1], args[2]);
-      return args[0];
+      const map = args[0] as Map<any, any>;
+      const key = args[1];
+      const value = args[2];
+      map.set(key, value);
+      return map;
     }
   });
 
   registry.register({
     name: 'map_get',
     module: 'map',
+    signature: {
+      name: 'map_get',
+      returnType: 'any',
+      parameters: [
+        { name: 'map', type: 'object' },
+        { name: 'key', type: 'string' }
+      ],
+      category: 'event'
+    },
     executor: (args) => (args[0] as Map<any, any>).get(args[1])
   });
 
   registry.register({
     name: 'map_has',
     module: 'map',
+    signature: {
+      name: 'map_has',
+      returnType: 'boolean',
+      parameters: [
+        { name: 'map', type: 'object' },
+        { name: 'key', type: 'string' }
+      ],
+      category: 'event'
+    },
     executor: (args) => (args[0] as Map<any, any>).has(args[1])
   });
 
   registry.register({
     name: 'map_delete',
     module: 'map',
+    signature: {
+      name: 'map_delete',
+      returnType: 'object',
+      parameters: [
+        { name: 'map', type: 'object' },
+        { name: 'key', type: 'string' }
+      ],
+      category: 'event'
+    },
     executor: (args) => {
       (args[0] as Map<any, any>).delete(args[1]);
       return args[0];
@@ -408,6 +448,97 @@ export function registerStdlibFunctions(registry: NativeFunctionRegistry): void 
     executor: (args) => {
       (args[0] as Map<any, any>).clear();
       return args[0];
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────
+  // Phase A-6: PikaDB Functions
+  // ────────────────────────────────────────────────────────────
+
+  // In-memory database for PikaDB
+  const pikaDbStore = new Map<string, { value: any; timestamp: number }>();
+
+  registry.register({
+    name: 'db_set',
+    module: 'pika-db',
+    signature: {
+      name: 'db_set',
+      returnType: 'number',
+      parameters: [
+        { name: 'key', type: 'string' },
+        { name: 'value', type: 'any' }
+      ],
+      category: 'event'
+    },
+    executor: (args) => {
+      const startTime = performance.now();
+      const key = String(args[0]);
+      const value = args[1];
+      pikaDbStore.set(key, { value, timestamp: Date.now() });
+      const latency = performance.now() - startTime;
+      return Math.round(latency * 1000) / 1000; // Round to 3 decimal places
+    }
+  });
+
+  registry.register({
+    name: 'db_get',
+    module: 'pika-db',
+    signature: {
+      name: 'db_get',
+      returnType: 'array',
+      parameters: [
+        { name: 'key', type: 'string' }
+      ],
+      category: 'event'
+    },
+    executor: (args) => {
+      const startTime = performance.now();
+      const key = String(args[0]);
+      const stored = pikaDbStore.get(key);
+      const latency = performance.now() - startTime;
+
+      if (stored) {
+        return [stored.value, 'cache', Math.round(latency * 1000) / 1000];
+      } else {
+        return [undefined, 'miss', Math.round(latency * 1000) / 1000];
+      }
+    }
+  });
+
+  registry.register({
+    name: 'db_delete',
+    module: 'pika-db',
+    signature: {
+      name: 'db_delete',
+      returnType: 'number',
+      parameters: [
+        { name: 'key', type: 'string' }
+      ],
+      category: 'event'
+    },
+    executor: (args) => {
+      const startTime = performance.now();
+      const key = String(args[0]);
+      pikaDbStore.delete(key);
+      const latency = performance.now() - startTime;
+      return Math.round(latency * 1000) / 1000;
+    }
+  });
+
+  registry.register({
+    name: 'db_stats',
+    module: 'pika-db',
+    signature: {
+      name: 'db_stats',
+      returnType: 'object',
+      parameters: [],
+      category: 'event'
+    },
+    executor: () => {
+      const result = new Map<string, any>();
+      result.set('size', pikaDbStore.size);
+      result.set('keys', Array.from(pikaDbStore.keys()));
+      return result;
     }
   });
 
@@ -1203,6 +1334,16 @@ export function registerStdlibFunctions(registry: NativeFunctionRegistry): void 
   registry.register({
     name: 'map_set',
     module: 'map',
+    signature: {
+      name: 'map_set',
+      returnType: 'object',
+      parameters: [
+        { name: 'map', type: 'object' },
+        { name: 'key', type: 'string' },
+        { name: 'value', type: 'any' }
+      ],
+      category: 'event'
+    },
     executor: (args) => {
       const m = args[0] as Map<any, any>;
       m.set(args[1], args[2]);
@@ -1213,18 +1354,45 @@ export function registerStdlibFunctions(registry: NativeFunctionRegistry): void 
   registry.register({
     name: 'map_get',
     module: 'map',
+    signature: {
+      name: 'map_get',
+      returnType: 'any',
+      parameters: [
+        { name: 'map', type: 'object' },
+        { name: 'key', type: 'string' }
+      ],
+      category: 'event'
+    },
     executor: (args) => (args[0] as Map<any, any>).get(args[1])
   });
 
   registry.register({
     name: 'map_has',
     module: 'map',
+    signature: {
+      name: 'map_has',
+      returnType: 'boolean',
+      parameters: [
+        { name: 'map', type: 'object' },
+        { name: 'key', type: 'string' }
+      ],
+      category: 'event'
+    },
     executor: (args) => (args[0] as Map<any, any>).has(args[1])
   });
 
   registry.register({
     name: 'map_delete',
     module: 'map',
+    signature: {
+      name: 'map_delete',
+      returnType: 'object',
+      parameters: [
+        { name: 'map', type: 'object' },
+        { name: 'key', type: 'string' }
+      ],
+      category: 'event'
+    },
     executor: (args) => {
       (args[0] as Map<any, any>).delete(args[1]);
       return args[0];
